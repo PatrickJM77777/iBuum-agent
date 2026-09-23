@@ -23,6 +23,11 @@ iBuum Agent 0.1 (this project — independent FastAPI service)
    ▼
 Rules Engine (app/services/training_rules.py)
    │
+   ├── public output: TrainingRecommendationResponse (current API contract)
+   │
+   └── internal output: WorkoutPlan via Workout Generator V1
+      (not yet exposed in public API)
+   │
    ▼
 Structured JSON response
    │
@@ -51,7 +56,9 @@ ibuum-agent/
 │   │   ├── training_request.py     # Input schema (Pydantic), data minimization
 │   │   └── training_response.py    # Output schema + centralized reason codes
 │   ├── services/
-│   │   └── training_rules.py       # ALL business logic lives here
+│   │   ├── training_rules.py       # Training decision logic
+│   │   ├── training_engine.py      # Training rules orchestration
+│   │   └── workout_generator.py    # Internal Workout Generator V1
 │   ├── core/
 │   │   ├── config.py                # Env var loading (IBUUM_API_KEY, etc.)
 │   │   └── security.py              # X-API-Key header verification
@@ -211,10 +218,12 @@ overridden by lower ones — a lower tier can only narrow an intensity/duration
    is always `not_applicable` intensity / 0 minutes; `recovery` never
    reaches `high` intensity)
 
-This is a decision engine only — it does not generate workouts, sets, or
-reps. The public API contract (`POST /api/v1/training/recommendation`,
+The public API contract (`POST /api/v1/training/recommendation`,
 `GET /health`, the `X-API-Key` header, `IBUUM_API_KEY`, and all 7 response
-fields) is unchanged from the hardened baseline.
+fields) is unchanged from the hardened baseline. Workout Generator V1 now
+exists internally and produces a structured movement-slot prescription from
+an approved training decision, but that WorkoutPlan is not exposed in the
+public response yet.
 
 ### Refinement pass (product-rule clarifications)
 
