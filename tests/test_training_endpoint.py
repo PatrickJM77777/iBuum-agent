@@ -490,7 +490,8 @@ def test_invariant_response_always_matches_contract_shape():
 # =========================================================================
 
 
-def test_goal_session_preference_without_recent_session_conflict():
+def test_goal_session_preference_at_low_frequency_without_conflict():
+    # full_body is only a reasonable default at low frequency (<=2 days/week).
     goal_to_session = {
         "general_fitness": "full_body",
         "fat_loss": "full_body",
@@ -500,7 +501,9 @@ def test_goal_session_preference_without_recent_session_conflict():
         "mobility": "mobility",
     }
     for goal, expected_session in goal_to_session.items():
-        body = _post(_base_payload(goal=goal, last_session_type="unknown")).json()
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=2)
+        ).json()
         assert body["recommended_session"] == expected_session, goal
 
 
@@ -560,12 +563,41 @@ def test_fatigue_level_3_caps_high_intensity_goal_to_moderate():
     assert body["intensity"] == "moderate"
 
 
-def test_fatigue_level_4_caps_high_intensity_goal_to_low_and_tags_insufficient_recovery():
+def test_fatigue_level_4_caps_high_intensity_goal_to_low():
     body = _post(
         _base_payload(training_level="advanced", fatigue_level=4, goal="strength")
     ).json()
     assert body["intensity"] == "low"
+
+
+def test_fatigue_level_4_alone_does_not_tag_insufficient_recovery():
+    # Fatigue can have many non-training causes — it must not automatically
+    # imply an actual recovery conflict. last_session_type="rest" with a
+    # full 48h gap is the "no real recovery issue" case from the spec.
+    body = _post(
+        _base_payload(fatigue_level=4, last_session_type="rest", hours_since_last_session=48)
+    ).json()
+    assert "MODERATE_FATIGUE" in body["reason_codes"]
+    assert "INSUFFICIENT_RECOVERY" not in body["reason_codes"]
+    assert body["intensity"] == "low"  # still reduced, just for the right reason
+
+
+def test_fatigue_level_4_with_real_recovery_conflict_tags_both():
+    # Real recovery evidence (a demanding session too recently) DOES
+    # justify INSUFFICIENT_RECOVERY, alongside the fatigue tag.
+    body = _post(
+        _base_payload(fatigue_level=4, last_session_type="lower_body", hours_since_last_session=6)
+    ).json()
+    assert "MODERATE_FATIGUE" in body["reason_codes"]
     assert "INSUFFICIENT_RECOVERY" in body["reason_codes"]
+
+
+@pytest.mark.parametrize("fatigue_level", [1, 2, 3, 4])
+def test_insufficient_recovery_never_fires_from_fatigue_alone(fatigue_level):
+    body = _post(
+        _base_payload(fatigue_level=fatigue_level, last_session_type="unknown")
+    ).json()
+    assert "INSUFFICIENT_RECOVERY" not in body["reason_codes"]
 
 
 def test_low_weekly_frequency_tagged_without_duration_change():
@@ -681,3 +713,120 @@ def test_weekly_frequency_absolute_extremes_1_and_7_days():
     assert "LOW_WEEKLY_FREQUENCY" in one_day["reason_codes"]
     assert "HIGH_WEEKLY_FREQUENCY" in seven_days["reason_codes"]
     assert seven_days["duration_minutes"] == 30
+
+
+# =========================================================================
+# 8. TRAINING RULES V1 — refinement pass (cycle nuance, recovery-vs-fatigue,
+#    frequency-aware session selection)
+# =========================================================================
+
+
+def test_menstruation_with_none_discomfort_matches_no_cycle_context_exactly():
+    # Regression proof: phase alone must never change anything.
+    without = _post(_base_payload(sex="female")).json()
+    with_none = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "none"})
+    ).json()
+    assert without == with_none
+
+
+def test_menstruation_with_mild_discomfort_matches_no_cycle_context_exactly():
+    without = _post(_base_payload(sex="female")).json()
+    with_mild = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "mild"})
+    ).json()
+    assert without == with_mild
+
+
+def test_menstruation_with_moderate_discomfort_stays_on_train_action():
+    body = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "moderate"})
+    ).json()
+    assert body["action"] == "train"
+    assert "CYCLE_MODERATE_DISCOMFORT" in body["reason_codes"]
+
+
+def test_menstruation_with_moderate_discomfort_conservatively_caps_intensity():
+    body = _post(
+        _base_payload(
+            sex="female", goal="strength", training_level="advanced", fatigue_level=1,
+            cycle_context={"phase": "menstruation", "discomfort": "moderate"},
+        )
+    ).json()
+    assert body["intensity"] == "moderate"  # capped down from strength's "high"
+    assert body["action"] == "train"
+
+
+def test_intermediate_strength_low_fatigue_recovered_allows_high_intensity():
+    body = _post(
+        _base_payload(
+            training_level="intermediate", fatigue_level=1, goal="strength",
+            last_session_type="unknown",
+        )
+    ).json()
+    assert body["intensity"] == "high"
+
+
+def test_intermediate_strength_fatigue_3_does_not_allow_high_intensity():
+    body = _post(
+        _base_payload(training_level="intermediate", fatigue_level=3, goal="strength")
+    ).json()
+    assert body["intensity"] != "high"
+
+
+def test_intermediate_muscle_gain_insufficient_recovery_does_not_allow_high_intensity():
+    body = _post(
+        _base_payload(
+            training_level="intermediate", fatigue_level=1, goal="muscle_gain",
+            last_session_type="lower_body", hours_since_last_session=6,
+        )
+    ).json()
+    assert body["intensity"] != "high"
+    assert "INSUFFICIENT_RECOVERY" in body["reason_codes"]
+
+
+def test_beginner_strength_fatigue_1_maximum_moderate():
+    body = _post(
+        _base_payload(training_level="beginner", fatigue_level=1, goal="strength")
+    ).json()
+    assert body["intensity"] == "moderate"
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
+def test_full_body_not_forced_at_mid_or_high_frequency(goal):
+    for days in (3, 4, 5, 6, 7):
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert body["recommended_session"] != "full_body", (goal, days)
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
+def test_full_body_allowed_at_low_frequency(goal):
+    for days in (1, 2):
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert body["recommended_session"] == "full_body", (goal, days)
+
+
+def test_mid_frequency_uses_known_history_to_rotate_instead_of_full_body():
+    body = _post(
+        _base_payload(
+            goal="strength", training_days_per_week=4,
+            last_session_type="upper_body", hours_since_last_session=30,
+        )
+    ).json()
+    assert body["recommended_session"] == "lower_body"
+
+
+def test_endurance_and_mobility_goals_unaffected_by_frequency():
+    for days in (1, 4, 7):
+        cardio = _post(
+            _base_payload(goal="endurance", last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert cardio["recommended_session"] == "cardio"
+        mobility = _post(
+            _base_payload(goal="mobility", last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert mobility["recommended_session"] == "mobility"

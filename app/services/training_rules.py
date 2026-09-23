@@ -58,6 +58,7 @@ from app.models.training_response import (
 BASE_DURATION_MINUTES = 45
 FATIGUE4_DURATION_CAP = 30
 RECOVERY_DURATION_CAP = 20
+CYCLE_MODERATE_DURATION_CAP = 35
 HIGH_FREQUENCY_DURATION_CAP = 30
 
 _INTENSITY_ORDER = [Intensity.low, Intensity.moderate, Intensity.high]
@@ -65,7 +66,9 @@ _INTENSITY_ORDER = [Intensity.low, Intensity.moderate, Intensity.high]
 # Tier 5 (Goal): the base intensity a goal would ask for, BEFORE any
 # higher-priority ceiling is applied. This is the only place "high"
 # intensity can originate — it is always still subject to being capped
-# by fatigue, training level, or cycle context above it.
+# by fatigue, a genuine recovery conflict, training level, or cycle
+# context above it. High intensity therefore requires: low fatigue, no
+# recent-session conflict, and (for beginners) never applies at all.
 BASE_INTENSITY_BY_GOAL: dict[Goal, Intensity] = {
     Goal.general_fitness: Intensity.moderate,
     Goal.fat_loss: Intensity.moderate,
@@ -79,14 +82,48 @@ BASE_INTENSITY_BY_GOAL: dict[Goal, Intensity] = {
 # higher-priority rule (recent session conflict) has already fixed the
 # session category. Deliberately generic — this is NOT workout
 # programming, just a category pick among the existing enum values.
-GOAL_PREFERRED_SESSION: dict[Goal, RecommendedSession] = {
-    Goal.general_fitness: RecommendedSession.full_body,
-    Goal.fat_loss: RecommendedSession.full_body,
-    Goal.muscle_gain: RecommendedSession.full_body,
-    Goal.strength: RecommendedSession.full_body,
-    Goal.endurance: RecommendedSession.cardio,
-    Goal.mobility: RecommendedSession.mobility,
+#
+# `full_body` is only used as the default for goals in this set, and only
+# at low weekly frequency (<=2 days) — see _select_preferred_session().
+# It must never be a blind/generic default at 3+ days/week.
+_FULL_BODY_STYLE_GOALS = {
+    Goal.general_fitness,
+    Goal.fat_loss,
+    Goal.muscle_gain,
+    Goal.strength,
 }
+
+
+def _select_preferred_session(request: TrainingRecommendationRequest) -> RecommendedSession:
+    """
+    Tier 5 (Goal) session pick, only used when Tier 3 (Recent Session) left
+    the category undetermined (i.e. no <24h same-muscle-group conflict).
+
+    training_days_per_week is read here as *context* for the Goal tier's
+    own decision (it does not let Tier 6 / Weekly Frequency override
+    anything — that tier still only ever touches duration).
+    """
+    if request.goal == Goal.endurance:
+        return RecommendedSession.cardio
+    if request.goal == Goal.mobility:
+        return RecommendedSession.mobility
+
+    # goal in _FULL_BODY_STYLE_GOALS
+    if request.training_days_per_week <= 2:
+        # Infrequent training: a complete full-body session is reasonable.
+        return RecommendedSession.full_body
+
+    # 3+ days/week: full_body must never be the generic default. Use
+    # whatever real signal exists (even an old, non-conflicting last
+    # session) to rotate sensibly; otherwise fall back to the one category
+    # that's safe and appropriate regardless of goal, without guessing a
+    # muscle-group split we have no information to justify.
+    last_type = request.last_session_type
+    if last_type == SessionType.upper_body:
+        return RecommendedSession.lower_body
+    if last_type == SessionType.lower_body:
+        return RecommendedSession.upper_body
+    return RecommendedSession.mobility
 
 
 def _cap_intensity(intensity: Intensity, ceiling: Intensity) -> Intensity:
@@ -137,10 +174,13 @@ def _apply_fatigue(state: _State, request: TrainingRecommendationRequest) -> Non
         return  # terminal: nothing below this tier may run
 
     if fatigue == 4:
+        # Fatigue itself (regardless of cause) reduces intensity/duration.
+        # This is NOT recovery evidence — INSUFFICIENT_RECOVERY is reserved
+        # for actual recovery-conflict signals (see _apply_recent_session),
+        # since fatigue can come from many non-training causes.
         state.lower_intensity_ceiling(Intensity.low)
         state.lower_duration_ceiling(FATIGUE4_DURATION_CAP)
         state.add_reason(ReasonCode.MODERATE_FATIGUE)
-        state.add_reason(ReasonCode.INSUFFICIENT_RECOVERY)
     elif fatigue == 3:
         # "Avoid unnecessary high intensity" — cap at moderate, no duration cut.
         state.lower_intensity_ceiling(Intensity.moderate)
@@ -160,16 +200,25 @@ def _apply_cycle_context(state: _State, request: TrainingRecommendationRequest) 
         return  # already resting; a safety decision above stands.
 
     cycle = request.cycle_context
-    if (
-        cycle is not None
-        and cycle.phase == CyclePhase.menstruation
-        and cycle.discomfort == CycleDiscomfort.high
-    ):
+    if cycle is None or cycle.phase != CyclePhase.menstruation:
+        return
+
+    # Phase alone, and phase + none/mild discomfort, must NEVER modify the
+    # recommendation — only meaningful (moderate/high) discomfort may.
+    if cycle.discomfort == CycleDiscomfort.high:
         state.action = Action.recovery
         state.recommended_session = RecommendedSession.mobility
         state.lower_intensity_ceiling(Intensity.low)
         state.lower_duration_ceiling(RECOVERY_DURATION_CAP)
         state.add_reason(ReasonCode.CYCLE_HIGH_DISCOMFORT)
+    elif cycle.discomfort == CycleDiscomfort.moderate:
+        # Conservative reduction only — action stays "train", never forced
+        # into recovery/rest, per the explicit "should NOT automatically
+        # force rest" requirement.
+        state.lower_intensity_ceiling(Intensity.moderate)
+        state.lower_duration_ceiling(CYCLE_MODERATE_DURATION_CAP)
+        state.add_reason(ReasonCode.CYCLE_MODERATE_DISCOMFORT)
+    # none / mild: no-op by design.
 
 
 # --------------------------------------------------------------------
@@ -201,14 +250,24 @@ def _apply_recent_session(state: _State, request: TrainingRecommendationRequest)
 
     if hours is None:
         # We know a demanding session happened but not when. Don't invent
-        # a recovery window — flag it and stay conservative.
+        # a recovery window — flag it, stay conservative, and treat
+        # recovery status as unconfirmed (caps intensity like a genuine
+        # conflict, since we cannot rule one out).
         state.needs_more_data = True
         state.add_reason(ReasonCode.INSUFFICIENT_DATA)
+        state.add_reason(ReasonCode.INSUFFICIENT_RECOVERY)
+        state.lower_intensity_ceiling(Intensity.moderate)
         state.recommended_session = opposite
         return
 
     if hours < 24:
+        # A genuine recovery conflict: this is real recovery evidence, so
+        # it caps intensity (high intensity requires "no recent-session
+        # conflict" — see BASE_INTENSITY_BY_GOAL) in addition to steering
+        # the session category away from the same muscle group.
         state.recommended_session = opposite
+        state.lower_intensity_ceiling(Intensity.moderate)
+        state.add_reason(ReasonCode.INSUFFICIENT_RECOVERY)
         if last_type == SessionType.lower_body:
             state.add_reason(ReasonCode.RECENT_LOWER_BODY_SESSION)
         else:
@@ -239,7 +298,7 @@ def _apply_training_level(state: _State, request: TrainingRecommendationRequest)
 def _apply_goal(state: _State, request: TrainingRecommendationRequest) -> Intensity:
     """Returns the goal's requested base intensity (before ceilings apply)."""
     if state.recommended_session is None:
-        state.recommended_session = GOAL_PREFERRED_SESSION[request.goal]
+        state.recommended_session = _select_preferred_session(request)
 
     if state.action != Action.train:
         return Intensity.not_applicable
