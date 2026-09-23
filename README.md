@@ -194,6 +194,26 @@ implemented in this version.
 - Health checks (e.g. uptime monitoring, load balancer probes) can poll
   `GET /health`, which requires no authentication.
 
+## Audit & hardening notes (this revision)
+
+This revision is an **audit and hardening pass only** — no product behavior,
+API contract, endpoint, header, or environment variable name was changed.
+See the accompanying audit report for full detail. Summary of code changes:
+
+- `app/core/security.py`: the API key comparison now uses
+  `secrets.compare_digest()` instead of `==`, to avoid a timing side
+  channel. The header name, and 401-on-mismatch behavior, are unchanged.
+- `app/main.py`: added a generic exception handler so an unexpected
+  internal error always returns a plain `{"detail": "Internal server
+  error."}` with status 500, never a stack trace or exception message.
+  Only the exception type and request path are logged server-side; the
+  request body is never logged.
+- `tests/test_training_endpoint.py`: expanded from ~10 to 43 tests,
+  covering authentication, input validation boundaries, invalid enums,
+  missing fields, malformed JSON, every documented rule-engine scenario,
+  and rule-engine invariants (e.g. a `rest` action can never carry an
+  active intensity).
+
 ## Running the tests
 
 ```bash
