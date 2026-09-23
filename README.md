@@ -194,7 +194,29 @@ implemented in this version.
 - Health checks (e.g. uptime monitoring, load balancer probes) can poll
   `GET /health`, which requires no authentication.
 
-## Audit & hardening notes (this revision)
+## Training Rules V1
+
+The rules engine (`app/services/training_rules.py`) is a **priority-ordered
+pipeline**, not a flat set of if-statements. Higher tiers can never be
+overridden by lower ones — a lower tier can only narrow an intensity/duration
+"ceiling" that was already set above it:
+
+1. Fatigue / Recovery — can end the pipeline early (→ `rest`)
+2. Cycle Context — safety tier alongside fatigue (→ `recovery`)
+3. Recent Session — avoids repeating a recently-trained muscle group
+4. Training Level — caps intensity for beginners
+5. Training Objective (Goal) — sets base intensity + session preference
+6. Weekly Frequency — shapes session duration only
+7. Finalize — hard invariants enforced regardless of the above (e.g. `rest`
+   is always `not_applicable` intensity / 0 minutes; `recovery` never
+   reaches `high` intensity)
+
+This is a decision engine only — it does not generate workouts, sets, or
+reps. The public API contract (`POST /api/v1/training/recommendation`,
+`GET /health`, the `X-API-Key` header, `IBUUM_API_KEY`, and all 7 response
+fields) is unchanged from the hardened baseline.
+
+## Audit & hardening notes (previous revision)
 
 This revision is an **audit and hardening pass only** — no product behavior,
 API contract, endpoint, header, or environment variable name was changed.
