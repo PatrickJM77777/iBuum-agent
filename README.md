@@ -194,7 +194,51 @@ implemented in this version.
 - Health checks (e.g. uptime monitoring, load balancer probes) can poll
   `GET /health`, which requires no authentication.
 
-## Audit & hardening notes (this revision)
+## Training Rules V1
+
+The rules engine (`app/services/training_rules.py`) is a **priority-ordered
+pipeline**, not a flat set of if-statements. Higher tiers can never be
+overridden by lower ones — a lower tier can only narrow an intensity/duration
+"ceiling" that was already set above it:
+
+1. Fatigue / Recovery — can end the pipeline early (→ `rest`)
+2. Cycle Context — safety tier alongside fatigue (→ `recovery`)
+3. Recent Session — avoids repeating a recently-trained muscle group
+4. Training Level — caps intensity for beginners
+5. Training Objective (Goal) — sets base intensity + session preference
+6. Weekly Frequency — shapes session duration only
+7. Finalize — hard invariants enforced regardless of the above (e.g. `rest`
+   is always `not_applicable` intensity / 0 minutes; `recovery` never
+   reaches `high` intensity)
+
+This is a decision engine only — it does not generate workouts, sets, or
+reps. The public API contract (`POST /api/v1/training/recommendation`,
+`GET /health`, the `X-API-Key` header, `IBUUM_API_KEY`, and all 7 response
+fields) is unchanged from the hardened baseline.
+
+### Refinement pass (product-rule clarifications)
+
+Four clarifications were applied on top of the initial Training Rules V1:
+
+1. **Cycle context** — phase alone, and phase + none/mild discomfort, are
+   now strict no-ops (byte-for-byte identical response to no `cycle_context`
+   at all). `moderate` discomfort now gets its own conservative, non-forcing
+   adjustment (`CYCLE_MODERATE_DISCOMFORT`: caps intensity/duration, action
+   stays `train`) between the old none/mild no-op and the existing `high`
+   discomfort → `recovery` behavior.
+2. **High intensity for intermediate/advanced** — now explicitly requires
+   low fatigue *and* no recent-session conflict, not just training level.
+3. **`full_body` is no longer a blind default** — only used at ≤2 training
+   days/week; at 3+ days/week the engine either rotates off real
+   upper/lower-body history or falls back to `mobility` (never invents a
+   muscle-group split it has no data for).
+4. **Fatigue ≠ recovery conflict** — `fatigue_level=4` alone no longer
+   auto-tags `INSUFFICIENT_RECOVERY`; that code is now reserved for actual
+   recovery evidence (a demanding session too recently, or unconfirmed
+   recovery status), which also now caps intensity to `moderate` — this is
+   what makes "no recent-session conflict" enforceable for high intensity.
+
+## Audit & hardening notes (previous revision)
 
 This revision is an **audit and hardening pass only** — no product behavior,
 API contract, endpoint, header, or environment variable name was changed.

@@ -9,8 +9,9 @@ Organized in sections:
   2. Authentication & security
   3. Response contract shape
   4. Input validation (boundaries, enums, required fields)
-  5. Rule engine behavior
+  5. Rule engine behavior (pre-V1 + Training Rules V1 regression)
   6. Rule engine invariants (properties that must always hold)
+  7. Training Rules V1 — goal, training level, weekly frequency, priority
 
 The API contract itself (endpoint paths, header name, env var name,
 response field names) is NOT modified by this suite — these tests exist to
@@ -482,3 +483,350 @@ def test_invariant_response_always_matches_contract_shape():
         body = _post(payload).json()
         assert set(body.keys()) == expected_fields
         assert body["agent_version"] == "0.1"
+
+
+# =========================================================================
+# 7. TRAINING RULES V1 — goal, training level, weekly frequency, priority
+# =========================================================================
+
+
+def test_goal_session_preference_at_low_frequency_without_conflict():
+    # full_body is only a reasonable default at low frequency (<=2 days/week).
+    goal_to_session = {
+        "general_fitness": "full_body",
+        "fat_loss": "full_body",
+        "muscle_gain": "full_body",
+        "strength": "full_body",
+        "endurance": "cardio",
+        "mobility": "mobility",
+    }
+    for goal, expected_session in goal_to_session.items():
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=2)
+        ).json()
+        assert body["recommended_session"] == expected_session, goal
+
+
+def test_recent_session_conflict_overrides_goal_session_preference():
+    # Priority 3 (recent session) must beat priority 5 (goal).
+    body = _post(
+        _base_payload(
+            goal="endurance", last_session_type="lower_body", hours_since_last_session=5
+        )
+    ).json()
+    assert body["recommended_session"] == "upper_body"
+
+
+def test_beginner_intensity_cap_is_reachable_and_tagged():
+    # Pre-V1 this reason code could never fire because nothing ever asked
+    # for more than "moderate". A demanding goal now makes it reachable.
+    body = _post(
+        _base_payload(training_level="beginner", fatigue_level=1, goal="strength")
+    ).json()
+    assert body["intensity"] == "moderate"
+    assert "BEGINNER_INTENSITY_LIMIT" in body["reason_codes"]
+
+
+def test_advanced_strength_low_fatigue_reaches_high_intensity():
+    body = _post(
+        _base_payload(training_level="advanced", fatigue_level=1, goal="strength")
+    ).json()
+    assert body["intensity"] == "high"
+
+
+def test_advanced_muscle_gain_low_fatigue_reaches_high_intensity():
+    body = _post(
+        _base_payload(training_level="advanced", fatigue_level=1, goal="muscle_gain")
+    ).json()
+    assert body["intensity"] == "high"
+
+
+def test_intermediate_level_can_also_reach_high_intensity():
+    body = _post(
+        _base_payload(training_level="intermediate", fatigue_level=1, goal="strength")
+    ).json()
+    assert body["intensity"] == "high"
+
+
+def test_fatigue_overrides_goal_per_spec_example():
+    # Explicit example from the spec: goal=muscle_gain, fatigue=5 -> rest.
+    body = _post(
+        _base_payload(training_level="advanced", fatigue_level=5, goal="muscle_gain")
+    ).json()
+    assert body["action"] == "rest"
+
+
+def test_fatigue_level_3_caps_high_intensity_goal_to_moderate():
+    body = _post(
+        _base_payload(training_level="advanced", fatigue_level=3, goal="strength")
+    ).json()
+    assert body["intensity"] == "moderate"
+
+
+def test_fatigue_level_4_caps_high_intensity_goal_to_low():
+    body = _post(
+        _base_payload(training_level="advanced", fatigue_level=4, goal="strength")
+    ).json()
+    assert body["intensity"] == "low"
+
+
+def test_fatigue_level_4_alone_does_not_tag_insufficient_recovery():
+    # Fatigue can have many non-training causes — it must not automatically
+    # imply an actual recovery conflict. last_session_type="rest" with a
+    # full 48h gap is the "no real recovery issue" case from the spec.
+    body = _post(
+        _base_payload(fatigue_level=4, last_session_type="rest", hours_since_last_session=48)
+    ).json()
+    assert "MODERATE_FATIGUE" in body["reason_codes"]
+    assert "INSUFFICIENT_RECOVERY" not in body["reason_codes"]
+    assert body["intensity"] == "low"  # still reduced, just for the right reason
+
+
+def test_fatigue_level_4_with_real_recovery_conflict_tags_both():
+    # Real recovery evidence (a demanding session too recently) DOES
+    # justify INSUFFICIENT_RECOVERY, alongside the fatigue tag.
+    body = _post(
+        _base_payload(fatigue_level=4, last_session_type="lower_body", hours_since_last_session=6)
+    ).json()
+    assert "MODERATE_FATIGUE" in body["reason_codes"]
+    assert "INSUFFICIENT_RECOVERY" in body["reason_codes"]
+
+
+@pytest.mark.parametrize("fatigue_level", [1, 2, 3, 4])
+def test_insufficient_recovery_never_fires_from_fatigue_alone(fatigue_level):
+    body = _post(
+        _base_payload(fatigue_level=fatigue_level, last_session_type="unknown")
+    ).json()
+    assert "INSUFFICIENT_RECOVERY" not in body["reason_codes"]
+
+
+def test_low_weekly_frequency_tagged_without_duration_change():
+    body = _post(_base_payload(training_days_per_week=2)).json()
+    assert "LOW_WEEKLY_FREQUENCY" in body["reason_codes"]
+    assert body["duration_minutes"] == 45
+
+
+def test_high_weekly_frequency_tagged_and_duration_capped():
+    body = _post(_base_payload(training_days_per_week=6)).json()
+    assert "HIGH_WEEKLY_FREQUENCY" in body["reason_codes"]
+    assert body["duration_minutes"] == 30
+
+
+def test_mid_weekly_frequency_gets_no_frequency_reason_code():
+    body = _post(_base_payload(training_days_per_week=3)).json()
+    assert "LOW_WEEKLY_FREQUENCY" not in body["reason_codes"]
+    assert "HIGH_WEEKLY_FREQUENCY" not in body["reason_codes"]
+
+
+def test_weekly_frequency_tier_boundary_4_vs_5_days():
+    four_days = _post(_base_payload(training_days_per_week=4)).json()
+    five_days = _post(_base_payload(training_days_per_week=5)).json()
+    assert "HIGH_WEEKLY_FREQUENCY" not in four_days["reason_codes"]
+    assert "HIGH_WEEKLY_FREQUENCY" in five_days["reason_codes"]
+    assert five_days["duration_minutes"] == 30
+
+
+def test_recovery_action_never_reaches_high_intensity_even_with_extreme_goal():
+    body = _post(
+        _base_payload(
+            sex="female",
+            goal="strength",
+            training_level="advanced",
+            fatigue_level=1,
+            cycle_context={"phase": "menstruation", "discomfort": "high"},
+        )
+    ).json()
+    assert body["action"] == "recovery"
+    assert body["intensity"] != "high"
+
+
+def test_beginner_high_frequency_strength_caps_intensity_and_duration_together():
+    body = _post(
+        _base_payload(
+            training_level="beginner",
+            training_days_per_week=6,
+            fatigue_level=1,
+            goal="strength",
+        )
+    ).json()
+    assert body["intensity"] == "moderate"
+    assert body["duration_minutes"] == 30
+
+
+@pytest.mark.parametrize("last_session_type", ["lower_body", "upper_body"])
+def test_insufficient_data_always_implies_needs_more_data(last_session_type):
+    payload = _base_payload(last_session_type=last_session_type)
+    del payload["hours_since_last_session"]
+    body = _post(payload).json()
+    if "INSUFFICIENT_DATA" in body["reason_codes"]:
+        assert body["needs_more_data"] is True
+
+
+V1_SWEEP_PAYLOADS = [
+    _base_payload(),
+    _base_payload(fatigue_level=1, goal="mobility"),
+    _base_payload(fatigue_level=3, goal="endurance"),
+    _base_payload(training_level="advanced", goal="muscle_gain", fatigue_level=1),
+    _base_payload(training_level="beginner", goal="strength", fatigue_level=2),
+    _base_payload(training_days_per_week=7, goal="fat_loss"),
+    _base_payload(training_days_per_week=1, goal="strength", training_level="advanced"),
+]
+
+
+def test_v1_sweep_train_action_always_has_real_intensity():
+    for payload in V1_SWEEP_PAYLOADS:
+        body = _post(payload).json()
+        if body["action"] == "train":
+            assert body["intensity"] in {"low", "moderate", "high"}
+
+
+def test_v1_sweep_response_contract_still_stable():
+    expected_fields = {
+        "action", "recommended_session", "intensity", "duration_minutes",
+        "reason_codes", "needs_more_data", "agent_version",
+    }
+    for payload in V1_SWEEP_PAYLOADS:
+        body = _post(payload).json()
+        assert set(body.keys()) == expected_fields
+        assert body["agent_version"] == "0.1"
+
+
+def test_recommendation_is_deterministic_for_identical_input():
+    payload = _base_payload(goal="strength", training_level="advanced", fatigue_level=2)
+    first = _post(payload).json()
+    second = _post(payload).json()
+    assert first == second
+
+
+def test_non_demanding_last_session_types_do_not_trigger_recent_conflict():
+    for session_type in ("cardio", "mobility", "full_body", "rest"):
+        body = _post(
+            _base_payload(last_session_type=session_type, hours_since_last_session=2)
+        ).json()
+        assert "RECENT_LOWER_BODY_SESSION" not in body["reason_codes"]
+        assert "RECENT_UPPER_BODY_SESSION" not in body["reason_codes"]
+
+
+def test_weekly_frequency_absolute_extremes_1_and_7_days():
+    one_day = _post(_base_payload(training_days_per_week=1)).json()
+    seven_days = _post(_base_payload(training_days_per_week=7)).json()
+    assert "LOW_WEEKLY_FREQUENCY" in one_day["reason_codes"]
+    assert "HIGH_WEEKLY_FREQUENCY" in seven_days["reason_codes"]
+    assert seven_days["duration_minutes"] == 30
+
+
+# =========================================================================
+# 8. TRAINING RULES V1 — refinement pass (cycle nuance, recovery-vs-fatigue,
+#    frequency-aware session selection)
+# =========================================================================
+
+
+def test_menstruation_with_none_discomfort_matches_no_cycle_context_exactly():
+    # Regression proof: phase alone must never change anything.
+    without = _post(_base_payload(sex="female")).json()
+    with_none = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "none"})
+    ).json()
+    assert without == with_none
+
+
+def test_menstruation_with_mild_discomfort_matches_no_cycle_context_exactly():
+    without = _post(_base_payload(sex="female")).json()
+    with_mild = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "mild"})
+    ).json()
+    assert without == with_mild
+
+
+def test_menstruation_with_moderate_discomfort_stays_on_train_action():
+    body = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "moderate"})
+    ).json()
+    assert body["action"] == "train"
+    assert "CYCLE_MODERATE_DISCOMFORT" in body["reason_codes"]
+
+
+def test_menstruation_with_moderate_discomfort_conservatively_caps_intensity():
+    body = _post(
+        _base_payload(
+            sex="female", goal="strength", training_level="advanced", fatigue_level=1,
+            cycle_context={"phase": "menstruation", "discomfort": "moderate"},
+        )
+    ).json()
+    assert body["intensity"] == "moderate"  # capped down from strength's "high"
+    assert body["action"] == "train"
+
+
+def test_intermediate_strength_low_fatigue_recovered_allows_high_intensity():
+    body = _post(
+        _base_payload(
+            training_level="intermediate", fatigue_level=1, goal="strength",
+            last_session_type="unknown",
+        )
+    ).json()
+    assert body["intensity"] == "high"
+
+
+def test_intermediate_strength_fatigue_3_does_not_allow_high_intensity():
+    body = _post(
+        _base_payload(training_level="intermediate", fatigue_level=3, goal="strength")
+    ).json()
+    assert body["intensity"] != "high"
+
+
+def test_intermediate_muscle_gain_insufficient_recovery_does_not_allow_high_intensity():
+    body = _post(
+        _base_payload(
+            training_level="intermediate", fatigue_level=1, goal="muscle_gain",
+            last_session_type="lower_body", hours_since_last_session=6,
+        )
+    ).json()
+    assert body["intensity"] != "high"
+    assert "INSUFFICIENT_RECOVERY" in body["reason_codes"]
+
+
+def test_beginner_strength_fatigue_1_maximum_moderate():
+    body = _post(
+        _base_payload(training_level="beginner", fatigue_level=1, goal="strength")
+    ).json()
+    assert body["intensity"] == "moderate"
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
+def test_full_body_not_forced_at_mid_or_high_frequency(goal):
+    for days in (3, 4, 5, 6, 7):
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert body["recommended_session"] != "full_body", (goal, days)
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
+def test_full_body_allowed_at_low_frequency(goal):
+    for days in (1, 2):
+        body = _post(
+            _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert body["recommended_session"] == "full_body", (goal, days)
+
+
+def test_mid_frequency_uses_known_history_to_rotate_instead_of_full_body():
+    body = _post(
+        _base_payload(
+            goal="strength", training_days_per_week=4,
+            last_session_type="upper_body", hours_since_last_session=30,
+        )
+    ).json()
+    assert body["recommended_session"] == "lower_body"
+
+
+def test_endurance_and_mobility_goals_unaffected_by_frequency():
+    for days in (1, 4, 7):
+        cardio = _post(
+            _base_payload(goal="endurance", last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert cardio["recommended_session"] == "cardio"
+        mobility = _post(
+            _base_payload(goal="mobility", last_session_type="unknown", training_days_per_week=days)
+        ).json()
+        assert mobility["recommended_session"] == "mobility"
