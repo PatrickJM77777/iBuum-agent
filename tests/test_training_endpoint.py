@@ -365,6 +365,19 @@ def test_missing_hours_with_known_last_session_flags_insufficient_data():
     assert "INSUFFICIENT_DATA" in body["reason_codes"]
 
 
+@pytest.mark.parametrize("last_session_type", ["lower_body", "upper_body"])
+def test_missing_hours_with_demanding_last_session_does_not_emit_insufficient_recovery(
+    last_session_type,
+):
+    payload = _base_payload(last_session_type=last_session_type)
+    del payload["hours_since_last_session"]
+    body = _post(payload).json()
+    assert body["needs_more_data"] is True
+    assert "INSUFFICIENT_DATA" in body["reason_codes"]
+    assert "INSUFFICIENT_RECOVERY" not in body["reason_codes"]
+    assert body["intensity"] != "high"
+
+
 def test_female_user_without_cycle_context_behaves_normally():
     response = _post(_base_payload(sex="female"))
     assert response.status_code == 200

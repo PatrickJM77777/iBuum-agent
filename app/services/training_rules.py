@@ -255,7 +255,6 @@ def _apply_recent_session(state: _State, request: TrainingRecommendationRequest)
         # conflict, since we cannot rule one out).
         state.needs_more_data = True
         state.add_reason(ReasonCode.INSUFFICIENT_DATA)
-        state.add_reason(ReasonCode.INSUFFICIENT_RECOVERY)
         state.lower_intensity_ceiling(Intensity.moderate)
         state.recommended_session = opposite
         return
