@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends
 from app.core.security import verify_api_key
 from app.models.training_request import TrainingRecommendationRequest
 from app.models.training_response import TrainingRecommendationResponse
-from app.services import training_rules
+from app.services import training_engine
 
 router = APIRouter(prefix="/api/v1/training", tags=["training"])
 
@@ -27,4 +27,4 @@ async def get_training_recommendation(
     payload: TrainingRecommendationRequest,
 ) -> TrainingRecommendationResponse:
     """Return a deterministic training recommendation for the given context."""
-    return training_rules.evaluate(payload)
+    return training_engine.evaluate(payload)

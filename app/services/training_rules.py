@@ -377,9 +377,10 @@ def _finalize(
     )
 
 
-def evaluate(request: TrainingRecommendationRequest) -> TrainingRecommendationResponse:
-    """Run the full Training Rules V1 pipeline and return the recommendation."""
-    agent_version = get_settings().agent_version
+def run_pipeline(
+    request: TrainingRecommendationRequest, agent_version: str
+) -> TrainingRecommendationResponse:
+    """Run the deterministic Training Rules V1 pipeline."""
     state = _State()
 
     _apply_fatigue(state, request)
@@ -390,3 +391,8 @@ def evaluate(request: TrainingRecommendationRequest) -> TrainingRecommendationRe
     _apply_weekly_frequency(state, request)
 
     return _finalize(state, goal_base_intensity, agent_version)
+
+
+def evaluate(request: TrainingRecommendationRequest) -> TrainingRecommendationResponse:
+    """Run the full Training Rules V1 pipeline and return the recommendation."""
+    return run_pipeline(request, get_settings().agent_version)
