@@ -290,7 +290,13 @@ def test_public_api_does_not_import_selector_or_expose_context():
     assert {"available_equipment", "training_location"}.isdisjoint(TrainingRecommendationRequest.model_fields)
     root = Path(__file__).resolve().parents[1] / "app"
     for path in root.rglob("*.py"):
-        if path.name in {"exercise_selector.py", "exercise_selection.py"}:
+        # The internal orchestrator is the only approved selector consumer.
+        if path.relative_to(root).as_posix() in {
+            "services/exercise_selector.py", "models/exercise_selection.py",
+            "services/workout_orchestrator.py", "models/workout_orchestration.py",
+        }:
             continue
         assert "exercise_selector" not in path.read_text(encoding="utf-8")
         assert "exercise_selection" not in path.read_text(encoding="utf-8")
+        assert "workout_orchestrator" not in path.read_text(encoding="utf-8")
+        assert "workout_orchestration" not in path.read_text(encoding="utf-8")
