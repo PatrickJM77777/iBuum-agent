@@ -504,7 +504,7 @@ def test_invariant_response_always_matches_contract_shape():
 
 
 def test_goal_session_preference_at_low_frequency_without_conflict():
-    # full_body is only a reasonable default at low frequency (<=2 days/week).
+    # full_body is only a low-frequency strategy or a bootstrap without useful history.
     goal_to_session = {
         "general_fitness": "full_body",
         "fat_loss": "full_body",
@@ -712,7 +712,7 @@ def test_recommendation_is_deterministic_for_identical_input():
 
 
 def test_non_demanding_last_session_types_do_not_trigger_recent_conflict():
-    for session_type in ("cardio", "mobility", "full_body", "rest"):
+    for session_type in ("cardio", "mobility", "rest"):
         body = _post(
             _base_payload(last_session_type=session_type, hours_since_last_session=2)
         ).json()
@@ -824,12 +824,12 @@ def test_beginner_strength_fatigue_1_maximum_moderate():
 
 
 @pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
-def test_full_body_not_forced_at_mid_or_high_frequency(goal):
+def test_full_body_bootstrap_without_useful_history(goal):
     for days in (3, 4, 5, 6, 7):
         body = _post(
             _base_payload(goal=goal, last_session_type="unknown", training_days_per_week=days)
         ).json()
-        assert body["recommended_session"] != "full_body", (goal, days)
+        assert body["recommended_session"] == "full_body", (goal, days)
 
 
 @pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])

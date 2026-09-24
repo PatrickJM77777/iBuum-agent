@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 # Configure the test key before importing the application and its settings.
 os.environ.setdefault("IBUUM_API_KEY", "test-secret-key")
 
@@ -152,7 +154,7 @@ def test_goal_cannot_override_fatigue_ceiling():
 
 def test_weekly_frequency_affects_session_not_universal_full_body():
     low = engine.evaluate(_request(goal="strength", training_days_per_week=2))
-    high = engine.evaluate(_request(goal="strength", training_days_per_week=6))
+    high = engine.evaluate(_request(goal="strength", training_days_per_week=6, last_session_type="upper_body"))
     assert low.recommended_session == RecommendedSession.full_body
     assert high.recommended_session != RecommendedSession.full_body
 
@@ -212,3 +214,78 @@ def test_route_to_engine_integration(monkeypatch):
     )
     assert response.status_code == 200
     assert response.json()["action"] == "recovery"
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength"])
+@pytest.mark.parametrize("days", range(1, 8))
+def test_v11_frequency_rotation_and_bootstrap(goal, days):
+    for last, hours in [(None, None), ("unknown", None), ("unknown", 24),
+                        ("cardio", 2), ("mobility", 2), ("rest", 2),
+                        ("upper_body", 24), ("lower_body", 24), ("full_body", 24)]:
+        result = engine.evaluate(_request(goal=goal, training_days_per_week=days,
+                                         last_session_type=last, hours_since_last_session=hours))
+        expected = "full_body"
+        if days >= 4:
+            expected = {"upper_body": "lower_body", "lower_body": "upper_body",
+                        "full_body": "upper_body"}.get(last, "full_body")
+        assert result.action == Action.train
+        assert result.recommended_session == expected
+        assert ReasonCode.INSUFFICIENT_RECOVERY not in result.reason_codes
+        if last in (None, "unknown"):
+            assert ReasonCode.RECOVERY_WINDOW_OK not in result.reason_codes
+        else:
+            assert ReasonCode.RECOVERY_WINDOW_OK in result.reason_codes
+
+
+@pytest.mark.parametrize("goal", ["general_fitness", "fat_loss", "muscle_gain", "strength", "endurance", "mobility"])
+@pytest.mark.parametrize("hours", [0, 23])
+def test_v11_recent_full_body_requires_recovery(goal, hours):
+    result = engine.evaluate(_request(goal=goal, fatigue_level=1, last_session_type="full_body",
+                                     hours_since_last_session=hours))
+    assert result.action == Action.recovery
+    assert result.recommended_session == RecommendedSession.mobility
+    assert result.intensity == Intensity.low
+    assert result.duration_minutes <= 20
+    assert ReasonCode.INSUFFICIENT_RECOVERY in result.reason_codes
+    assert ReasonCode.RECOVERY_WINDOW_OK not in result.reason_codes
+    assert not result.needs_more_data
+
+
+@pytest.mark.parametrize("last", [None, "unknown", "full_body"])
+def test_v11_uncertain_recent_or_untimed_full_body_session(last):
+    result = engine.evaluate(_request(goal="strength", fatigue_level=1,
+                                     last_session_type=last,
+                                     hours_since_last_session=None if last == "full_body" else 23))
+    assert result.recommended_session == RecommendedSession.mobility
+    assert result.needs_more_data
+    assert result.intensity == Intensity.moderate
+    assert ReasonCode.INSUFFICIENT_DATA in result.reason_codes
+    assert ReasonCode.INSUFFICIENT_RECOVERY not in result.reason_codes
+    assert ReasonCode.RECOVERY_WINDOW_OK not in result.reason_codes
+
+
+@pytest.mark.parametrize("days", [1, 3, 4, 7])
+@pytest.mark.parametrize("last,expected", [("upper_body", "lower_body"), ("lower_body", "upper_body")])
+def test_v11_recent_split_conflict_preserved(days, last, expected):
+    result = engine.evaluate(_request(goal="strength", training_days_per_week=days,
+                                     last_session_type=last, hours_since_last_session=23))
+    assert result.action == Action.train
+    assert result.recommended_session == expected
+    assert result.intensity == Intensity.moderate
+    assert ReasonCode.INSUFFICIENT_RECOVERY in result.reason_codes
+
+
+@pytest.mark.parametrize("last,hours", [("full_body", 23), ("unknown", 23), (None, None)])
+def test_v11_safety_priority_preserved(last, hours):
+    context = dict(goal="strength", last_session_type=last, hours_since_last_session=hours)
+    rest = engine.evaluate(_request(**context, fatigue_level=5))
+    assert rest.action == Action.rest
+    assert rest.intensity == Intensity.not_applicable
+    cycle = engine.evaluate(_request(**context, sex="female",
+                                    cycle_context={"phase": "follicular", "discomfort": "high"}))
+    assert cycle.action == Action.recovery
+    assert cycle.intensity == Intensity.low
+    assert ReasonCode.CYCLE_HIGH_DISCOMFORT in cycle.reason_codes
+    assert ReasonCode.INSUFFICIENT_RECOVERY not in cycle.reason_codes
+    beginner = engine.evaluate(_request(**context, training_level="beginner"))
+    assert beginner.intensity != Intensity.high

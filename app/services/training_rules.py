@@ -26,7 +26,8 @@ pipeline early (fatigue -> rest) or force it onto a non-train path
 (they only ever refine a *training* session, never second-guess a
 safety decision already made above them).
 
-Tiers 3-6 never set `action`. They only narrow an "intensity ceiling"
+Tier 3 may force recovery after recent full-body training. Tiers 4-6
+never set `action`. They only narrow an "intensity ceiling"
 (which can only ever go down, never up) and shape the session category
 and duration. This is what makes a higher-priority rule's decision
 impossible to override from below: nothing later in the pipeline is
@@ -78,22 +79,6 @@ BASE_INTENSITY_BY_GOAL: dict[Goal, Intensity] = {
     Goal.mobility: Intensity.low,
 }
 
-# Tier 5 (Goal): coarse session-category preference. Only used when no
-# higher-priority rule (recent session conflict) has already fixed the
-# session category. Deliberately generic — this is NOT workout
-# programming, just a category pick among the existing enum values.
-#
-# `full_body` is only used as the default for goals in this set, and only
-# at low weekly frequency (<=2 days) — see _select_preferred_session().
-# It must never be a blind/generic default at 3+ days/week.
-_FULL_BODY_STYLE_GOALS = {
-    Goal.general_fitness,
-    Goal.fat_loss,
-    Goal.muscle_gain,
-    Goal.strength,
-}
-
-
 def _select_preferred_session(request: TrainingRecommendationRequest) -> RecommendedSession:
     """
     Tier 5 (Goal) session pick, only used when Tier 3 (Recent Session) left
@@ -108,22 +93,20 @@ def _select_preferred_session(request: TrainingRecommendationRequest) -> Recomme
     if request.goal == Goal.mobility:
         return RecommendedSession.mobility
 
-    # goal in _FULL_BODY_STYLE_GOALS
-    if request.training_days_per_week <= 2:
+    # Remaining goals use strength-style session selection.
+    if request.training_days_per_week <= 3:
         # Infrequent training: a complete full-body session is reasonable.
         return RecommendedSession.full_body
 
-    # 3+ days/week: full_body must never be the generic default. Use
-    # whatever real signal exists (even an old, non-conflicting last
-    # session) to rotate sensibly; otherwise fall back to the one category
-    # that's safe and appropriate regardless of goal, without guessing a
-    # muscle-group split we have no information to justify.
+    # 4+ days: rotate known demanding sessions; otherwise bootstrap/re-enter.
     last_type = request.last_session_type
     if last_type == SessionType.upper_body:
         return RecommendedSession.lower_body
     if last_type == SessionType.lower_body:
         return RecommendedSession.upper_body
-    return RecommendedSession.mobility
+    if last_type == SessionType.full_body:
+        return RecommendedSession.upper_body
+    return RecommendedSession.full_body
 
 
 def _cap_intensity(intensity: Intensity, ceiling: Intensity) -> Intensity:
@@ -232,13 +215,35 @@ def _apply_recent_session(state: _State, request: TrainingRecommendationRequest)
 
     last_type = request.last_session_type
     hours = request.hours_since_last_session
-    demanding_types = (SessionType.upper_body, SessionType.lower_body)
+    # Missing history is not recovery evidence. A known recent time with an
+    # unknown type is uncertainty, never proof of sufficient/insufficient recovery.
+    if last_type in (None, SessionType.unknown):
+        if hours is not None and hours < 24:
+            state.needs_more_data = True
+            state.add_reason(ReasonCode.INSUFFICIENT_DATA)
+            state.lower_intensity_ceiling(Intensity.moderate)
+            state.recommended_session = RecommendedSession.mobility
+        return
 
+    demanding_types = (SessionType.upper_body, SessionType.lower_body, SessionType.full_body)
     if last_type not in demanding_types:
-        # unknown/full_body/cardio/mobility/rest/None: no muscle-group
-        # conflict is possible, leave the session category undetermined
-        # for the Goal tier to decide.
         if hours is not None:
+            state.add_reason(ReasonCode.RECOVERY_WINDOW_OK)
+        return
+
+    if last_type == SessionType.full_body:
+        if hours is None:
+            state.needs_more_data = True
+            state.add_reason(ReasonCode.INSUFFICIENT_DATA)
+            state.lower_intensity_ceiling(Intensity.moderate)
+            state.recommended_session = RecommendedSession.mobility
+        elif hours < 24:
+            state.action = Action.recovery
+            state.recommended_session = RecommendedSession.mobility
+            state.lower_intensity_ceiling(Intensity.low)
+            state.lower_duration_ceiling(RECOVERY_DURATION_CAP)
+            state.add_reason(ReasonCode.INSUFFICIENT_RECOVERY)
+        else:
             state.add_reason(ReasonCode.RECOVERY_WINDOW_OK)
         return
 
