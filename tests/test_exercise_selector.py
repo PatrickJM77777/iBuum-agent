@@ -298,5 +298,10 @@ def test_public_api_does_not_import_selector_or_expose_context():
             continue
         assert "exercise_selector" not in path.read_text(encoding="utf-8")
         assert "exercise_selection" not in path.read_text(encoding="utf-8")
+        # The public adapter may consume orchestration, never selection directly.
+        if path.relative_to(root).as_posix() in {
+            "api/routes/workout.py", "services/workout_api_mapper.py",
+        }:
+            continue
         assert "workout_orchestrator" not in path.read_text(encoding="utf-8")
         assert "workout_orchestration" not in path.read_text(encoding="utf-8")
