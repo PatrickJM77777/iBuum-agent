@@ -1,5 +1,8 @@
 import os
 
+# Configure the test key before importing the application and its settings.
+os.environ.setdefault("IBUUM_API_KEY", "test-secret-key")
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -14,8 +17,6 @@ from app.models.training_response import (
 from app.services.cycle_context import NormalizedCycleContext
 from app.services import training_rules
 from app.services.training_engine import TrainingEngine
-
-os.environ.setdefault("IBUUM_API_KEY", "test-secret-key")
 
 client = TestClient(app)
 engine = TrainingEngine()
