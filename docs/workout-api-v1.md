@@ -70,7 +70,7 @@ unresolved work; there are no fallback exercises or relaxed constraints.
 ## Public boundary and privacy
 
 The application OpenAPI paths are exactly `/health`,
-`/api/v1/training/recommendation`, and `/api/v1/workout`. Existing FastAPI
+`/api/v1/training/recommendation`, `/api/v1/workout`, and `/api/v1/interpretation`. Existing FastAPI
 documentation infrastructure remains unchanged.
 Internal orchestration, environment, plan and selector models are not public
 request/response schemas. The API has no `source_plan` or `source_slot` wrappers.

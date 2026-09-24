@@ -294,7 +294,7 @@ def test_openapi_exposes_only_public_contracts(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     schema = response.json()
-    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", ENDPOINT}
+    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", ENDPOINT, "/api/v1/interpretation"}
     assert set(schema["paths"][ENDPOINT]) == {"post"}
     operation = schema["paths"][ENDPOINT]["post"]
     assert operation["requestBody"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/WorkoutApiRequest"}

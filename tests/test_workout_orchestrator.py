@@ -269,7 +269,7 @@ def test_public_api_remains_recommendation_only():
 
     client = TestClient(app)
     paths = app.openapi()["paths"]
-    assert set(paths) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout"}
+    assert set(paths) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout", "/api/v1/interpretation"}
     assert client.get("/health").status_code == 200
     endpoint = "/api/v1/training/recommendation"
     payload = request().model_dump(mode="json")

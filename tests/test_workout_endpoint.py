@@ -283,7 +283,7 @@ def test_existing_endpoints_are_unchanged(monkeypatch):
 
 def test_openapi_public_boundary():
     schema = app.openapi()
-    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", ENDPOINT}
+    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", ENDPOINT, "/api/v1/interpretation"}
     assert set(schema["paths"][ENDPOINT]) == {"post"}
     operation = schema["paths"][ENDPOINT]["post"]
     assert operation["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith("/WorkoutApiRequest")

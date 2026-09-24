@@ -10,7 +10,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.routes import training, workout
+from app.api.routes import interpretation, training, workout
 from app.core.config import get_settings
 
 # Standard logger. Only technical metadata is ever logged here (exception
@@ -34,6 +34,7 @@ app = FastAPI(
 
 app.include_router(training.router)
 app.include_router(workout.router)
+app.include_router(interpretation.router)
 
 
 @app.exception_handler(Exception)
