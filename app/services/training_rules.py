@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 
 from app.core.config import get_settings
 from app.models.training_request import (
+    CycleDiscomfort,
     Goal,
     SessionType,
     TrainingLevel,
@@ -207,14 +208,17 @@ def _apply_cycle_context(state: _State, cycle: NormalizedCycleContext) -> None:
     for reason_code in cycle.reason_codes:
         state.add_reason(reason_code)
 
-    if cycle.action is not None:
-        state.action = cycle.action
-    if cycle.recommended_session is not None:
-        state.recommended_session = cycle.recommended_session
-    if cycle.intensity_ceiling is not None:
-        state.lower_intensity_ceiling(cycle.intensity_ceiling)
-    if cycle.duration_ceiling is not None:
-        state.lower_duration_ceiling(cycle.duration_ceiling)
+    if cycle.discomfort is None:
+        return
+
+    if cycle.discomfort == CycleDiscomfort.high:
+        state.action = Action.recovery
+        state.recommended_session = RecommendedSession.mobility
+        state.lower_intensity_ceiling(Intensity.low)
+        state.lower_duration_ceiling(RECOVERY_DURATION_CAP)
+    elif cycle.discomfort == CycleDiscomfort.moderate:
+        state.lower_intensity_ceiling(Intensity.moderate)
+        state.lower_duration_ceiling(CYCLE_MODERATE_DURATION_CAP)
 
 
 # --------------------------------------------------------------------
@@ -378,11 +382,7 @@ def run_pipeline(
 ) -> TrainingRecommendationResponse:
     """Run the deterministic Training Rules V1 pipeline."""
     state = _State()
-    cycle = normalize_cycle_context(
-        request,
-        moderate_duration_cap=CYCLE_MODERATE_DURATION_CAP,
-        recovery_duration_cap=RECOVERY_DURATION_CAP,
-    )
+    cycle = normalize_cycle_context(request)
 
     _apply_fatigue(state, request)
     _apply_cycle_context(state, cycle)

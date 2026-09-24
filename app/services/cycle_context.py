@@ -5,7 +5,7 @@ from app.models.training_request import (
     CyclePhase,
     TrainingRecommendationRequest,
 )
-from app.models.training_response import Action, Intensity, ReasonCode, RecommendedSession
+from app.models.training_response import ReasonCode
 
 
 @dataclass(frozen=True)
@@ -15,19 +15,20 @@ class NormalizedCycleContext:
     discomfort: CycleDiscomfort | None = None
     is_complete: bool = False
     requires_more_data: bool = False
-    action: Action | None = None
-    recommended_session: RecommendedSession | None = None
-    intensity_ceiling: Intensity | None = None
-    duration_ceiling: int | None = None
     reason_codes: tuple[ReasonCode, ...] = ()
 
 
-def normalize_cycle_context(
-    request: TrainingRecommendationRequest,
-    *,
-    moderate_duration_cap: int,
-    recovery_duration_cap: int,
-) -> NormalizedCycleContext:
+def _reason_codes_for_discomfort(
+    discomfort: CycleDiscomfort,
+) -> tuple[ReasonCode, ...]:
+    if discomfort == CycleDiscomfort.moderate:
+        return (ReasonCode.CYCLE_MODERATE_DISCOMFORT,)
+    if discomfort == CycleDiscomfort.high:
+        return (ReasonCode.CYCLE_HIGH_DISCOMFORT,)
+    return ()
+
+
+def normalize_cycle_context(request: TrainingRecommendationRequest) -> NormalizedCycleContext:
     """
     Normalize optional cycle inputs into deterministic internal context.
 
@@ -55,30 +56,7 @@ def normalize_cycle_context(
         phase=cycle.phase,
         discomfort=cycle.discomfort,
         is_complete=True,
+        reason_codes=_reason_codes_for_discomfort(cycle.discomfort),
     )
-
-    if cycle.discomfort == CycleDiscomfort.high:
-        return NormalizedCycleContext(
-            available=True,
-            phase=cycle.phase,
-            discomfort=cycle.discomfort,
-            is_complete=True,
-            action=Action.recovery,
-            recommended_session=RecommendedSession.mobility,
-            intensity_ceiling=Intensity.low,
-            duration_ceiling=recovery_duration_cap,
-            reason_codes=(ReasonCode.CYCLE_HIGH_DISCOMFORT,),
-        )
-
-    if cycle.discomfort == CycleDiscomfort.moderate:
-        return NormalizedCycleContext(
-            available=True,
-            phase=cycle.phase,
-            discomfort=cycle.discomfort,
-            is_complete=True,
-            intensity_ceiling=Intensity.moderate,
-            duration_ceiling=moderate_duration_cap,
-            reason_codes=(ReasonCode.CYCLE_MODERATE_DISCOMFORT,),
-        )
 
     return normalized
