@@ -1,5 +1,9 @@
 import inspect
+import os
 from collections import Counter
+
+# Configure the test key before importing services that require settings.
+os.environ.setdefault("IBUUM_API_KEY", "test-secret-key")
 
 from app.models.exercise import (
     ExerciseDefinition,
