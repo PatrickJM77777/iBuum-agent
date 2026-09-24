@@ -320,6 +320,15 @@ class WorkoutGenerator:
 _GENERATOR = WorkoutGenerator()
 
 
+def get_supported_movement_patterns() -> tuple[str, ...]:
+    ordered_patterns: list[str] = []
+    for template in _SESSION_TEMPLATES.values():
+        for movement_pattern, _target_area in template:
+            if movement_pattern not in ordered_patterns:
+                ordered_patterns.append(movement_pattern)
+    return tuple(ordered_patterns)
+
+
 def generate_workout_plan(
     request: TrainingRecommendationRequest,
     recommendation: TrainingRecommendationResponse,
