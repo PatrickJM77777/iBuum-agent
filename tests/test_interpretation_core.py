@@ -231,7 +231,7 @@ def test_no_policy_execution_during_interpretation(monkeypatch):
 
 def test_openapi_unchanged():
     schema = app.openapi()
-    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout"}
+    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout", "/api/v1/interpretation"}
     assert "InterpretationResult" not in schema["components"]["schemas"]
 
 

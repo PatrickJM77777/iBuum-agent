@@ -282,7 +282,7 @@ def test_public_api_and_internal_contracts():
     fields = {"action", "recommended_session", "intensity", "duration_minutes", "reason_codes", "needs_more_data", "agent_version"}
     assert set(TrainingRecommendationResponse.model_fields) == fields
     schema = app.openapi()
-    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout"}
+    assert set(schema["paths"]) == {"/health", "/api/v1/training/recommendation", "/api/v1/workout", "/api/v1/interpretation"}
     assert set(schema["paths"]["/health"]) == {"get"}
     assert set(schema["paths"]["/api/v1/training/recommendation"]) == {"post"}
     assert not any("Orchestrat" in name or "SelectedWorkout" in name for name in schema["components"]["schemas"])

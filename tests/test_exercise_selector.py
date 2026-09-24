@@ -302,6 +302,7 @@ def test_public_api_does_not_import_selector_or_expose_context():
         # contracts, never selection directly.
         if path.relative_to(root).as_posix() in {
             "api/routes/workout.py", "services/workout_api_mapper.py",
+            "api/routes/interpretation.py",
             "services/interpretation_core.py", "services/kai_presenter.py",
             "services/kaia_presenter.py",
         }:
