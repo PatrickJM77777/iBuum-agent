@@ -38,8 +38,6 @@ from dataclasses import dataclass, field
 
 from app.core.config import get_settings
 from app.models.training_request import (
-    CycleDiscomfort,
-    CyclePhase,
     Goal,
     SessionType,
     TrainingLevel,
@@ -52,6 +50,7 @@ from app.models.training_response import (
     RecommendedSession,
     TrainingRecommendationResponse,
 )
+from app.services.cycle_context import NormalizedCycleContext, normalize_cycle_context
 
 # --- tunable constants (deterministic, no magic numbers scattered around) -
 
@@ -191,34 +190,31 @@ def _apply_fatigue(state: _State, request: TrainingRecommendationRequest) -> Non
 
 
 # --------------------------------------------------------------------
-# Tier 2 — Cycle Context (safety tier, alongside fatigue)
+# Tier 2 — Cycle Context (safety/context tier, alongside fatigue)
 # --------------------------------------------------------------------
 
 
-def _apply_cycle_context(state: _State, request: TrainingRecommendationRequest) -> None:
+def _apply_cycle_context(state: _State, cycle: NormalizedCycleContext) -> None:
     if state.action != Action.train:
         return  # already resting; a safety decision above stands.
 
-    cycle = request.cycle_context
-    if cycle is None or cycle.phase != CyclePhase.menstruation:
+    if not cycle.available:
         return
 
-    # Phase alone, and phase + none/mild discomfort, must NEVER modify the
-    # recommendation — only meaningful (moderate/high) discomfort may.
-    if cycle.discomfort == CycleDiscomfort.high:
-        state.action = Action.recovery
-        state.recommended_session = RecommendedSession.mobility
-        state.lower_intensity_ceiling(Intensity.low)
-        state.lower_duration_ceiling(RECOVERY_DURATION_CAP)
-        state.add_reason(ReasonCode.CYCLE_HIGH_DISCOMFORT)
-    elif cycle.discomfort == CycleDiscomfort.moderate:
-        # Conservative reduction only — action stays "train", never forced
-        # into recovery/rest, per the explicit "should NOT automatically
-        # force rest" requirement.
-        state.lower_intensity_ceiling(Intensity.moderate)
-        state.lower_duration_ceiling(CYCLE_MODERATE_DURATION_CAP)
-        state.add_reason(ReasonCode.CYCLE_MODERATE_DISCOMFORT)
-    # none / mild: no-op by design.
+    if cycle.requires_more_data:
+        state.needs_more_data = True
+
+    for reason_code in cycle.reason_codes:
+        state.add_reason(reason_code)
+
+    if cycle.action is not None:
+        state.action = cycle.action
+    if cycle.recommended_session is not None:
+        state.recommended_session = cycle.recommended_session
+    if cycle.intensity_ceiling is not None:
+        state.lower_intensity_ceiling(cycle.intensity_ceiling)
+    if cycle.duration_ceiling is not None:
+        state.lower_duration_ceiling(cycle.duration_ceiling)
 
 
 # --------------------------------------------------------------------
@@ -382,9 +378,14 @@ def run_pipeline(
 ) -> TrainingRecommendationResponse:
     """Run the deterministic Training Rules V1 pipeline."""
     state = _State()
+    cycle = normalize_cycle_context(
+        request,
+        moderate_duration_cap=CYCLE_MODERATE_DURATION_CAP,
+        recovery_duration_cap=RECOVERY_DURATION_CAP,
+    )
 
     _apply_fatigue(state, request)
-    _apply_cycle_context(state, request)
+    _apply_cycle_context(state, cycle)
     _apply_recent_session(state, request)
     _apply_training_level(state, request)
     goal_base_intensity = _apply_goal(state, request)
