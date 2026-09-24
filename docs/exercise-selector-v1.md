@@ -55,11 +55,24 @@ preserve their respective states, even without context. Unexpected slots in such
 plans remain unresolved with UPSTREAM_SELECTION_BLOCKED. Recovery slots use only
 their requested pattern and unchanged prescription.
 
+## Beginner horizontal push metadata correction
+
+`push_up` and `incline_push_up` now include `gym` in suitable_locations. Both are
+existing beginner bodyweight horizontal pushes: the first uses the floor and the
+second a stable elevated support, both compatible with a gym setting. Omitting
+gym incorrectly blocked selection. Only these two location tuples were changed;
+patterns, levels, equipment, catalog order and all other exercises are unchanged.
+The selector algorithm, Training Engine, Workout Generator and public API are
+unchanged by this correction.
+
+Three selector regression cases (one slot plus real beginner upper_body and
+full_body generator plans) failed before the metadata fix and pass afterward.
+They now return complete with no unresolved slots under compatible gym context.
+A library regression protects both entries and their existing metadata.
+
 ## Known limitations and scope
 
-- Coverage depends on the 46-entry catalog. In particular, beginner horizontal_push
-  has home/minimal_equipment options but no gym-compatible entry. The selector
-  reports LOCATION_NOT_COMPATIBLE in that case. No catalog metadata was changed.
+- Coverage depends on the 46-entry catalog and explicitly available equipment.
 - Compatibility is limited to the three explicit context fields and movement
   pattern. It does not infer apparatus or location availability beyond metadata,
   interpret target_area as an additional constraint, or assess medical suitability.
@@ -78,14 +91,14 @@ own fresh Python process using `python -m pytest -v tests/test_<module>.py`.
 
 | Run | Collected | Passed | Failed | Warnings |
 | --- | ---: | ---: | ---: | ---: |
-| exercise_selector | 84 | 84 | 0 | 0 |
+| exercise_selector | 87 | 87 | 0 | 0 |
 | training_engine | 17 | 17 | 0 | 1 |
 | cycle_context | 8 | 8 | 0 | 0 |
 | workout_generator | 19 | 19 | 0 | 0 |
-| exercise_library | 16 | 16 | 0 | 0 |
+| exercise_library | 17 | 17 | 0 | 0 |
 | training_endpoint | 93 | 93 | 0 | 2 |
-| Full suite `python -m pytest -v` | 237 | 237 | 0 | 2 |
-| Full suite `python -m pytest -q` | 237 | 237 | 0 | 2 |
+| Full suite `python -m pytest -v` | 241 | 241 | 0 | 2 |
+| Full suite `python -m pytest -q` | 241 | 241 | 0 | 2 |
 
 Warnings already present at baseline: Starlette's httpx TestClient deprecation
 and httpx's raw-body upload deprecation in test_malformed_json_is_rejected.
@@ -100,6 +113,7 @@ prescription preservation, mutation isolation, and architecture/API boundaries.
 
 GET /health, POST /api/v1/training/recommendation, X-API-Key, IBUUM_API_KEY,
 public request/response models, Training Rules/Engine, Kaia Cycle Context,
-Workout Generator and Exercise Library are unchanged. Source review and import
+Workout Generator are unchanged. Exercise Library changes are limited to the two
+gym location additions documented above. Source review and import
 guards verify that the new service adds no secrets, PII, persistence, sensitive
 logging, network/LLM calls or medical logic. Test profiles are synthetic.

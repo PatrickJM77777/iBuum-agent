@@ -203,6 +203,42 @@ def test_beginner_horizontal_push_with_compatible_home_context():
     assert TrainingLevel.beginner in exercise.training_levels
 
 
+def test_beginner_horizontal_push_resolves_in_gym_with_bodyweight():
+    result = select_exercises(plan("horizontal_push"), context(
+        training_level="beginner", training_location="gym",
+        available_equipment=["bodyweight"],
+    ))
+    assert result.selector_status == Status.complete
+    assert not result.unresolved_slots
+    assert len(result.selected_slots) == 1
+    exercise = get_exercise_by_id(result.selected_slots[0].exercise_id)
+    assert exercise.movement_pattern == MovementPattern.horizontal_push
+    assert TrainingLevel.beginner in exercise.training_levels
+    assert SuitableLocation.gym in exercise.suitable_locations
+    assert set(exercise.equipment) <= {ExerciseEquipment.bodyweight}
+
+
+@pytest.mark.parametrize("session", ["upper_body", "full_body"])
+def test_real_beginner_gym_workout_with_horizontal_push_is_complete(session):
+    source = generated(session, level="beginner")
+    before = source.model_dump()
+    assert any(s.movement_pattern == "horizontal_push" for s in source.movement_slots)
+    result = select_exercises(source, context(
+        training_level="beginner", training_location="gym",
+        available_equipment=list(ExerciseEquipment),
+    ))
+    assert result.selector_status == Status.complete
+    assert not result.unresolved_slots
+    assert len(result.selected_slots) == len(source.movement_slots)
+    assert [s.source_slot.model_dump() for s in result.selected_slots] == before["movement_slots"]
+    assert source.model_dump() == result.source_plan.model_dump() == before
+    for selected in result.selected_slots:
+        exercise = get_exercise_by_id(selected.exercise_id)
+        assert exercise.movement_pattern.value == selected.source_slot.movement_pattern
+        assert TrainingLevel.beginner in exercise.training_levels
+        assert SuitableLocation.gym in exercise.suitable_locations
+
+
 def test_recovery_preserves_requested_mobility_patterns():
     source = generated("mobility", action="recovery")
     result = select_exercises(source, context(available_equipment=["bodyweight"]))
