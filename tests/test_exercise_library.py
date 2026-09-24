@@ -27,6 +27,20 @@ from app.services.workout_generator import (
 from tests.test_workout_generator import _recommendation, _request
 
 
+def test_beginner_horizontal_push_bodyweight_options_include_gym():
+    for exercise_id, levels in (
+        ("push_up", (TrainingLevel.beginner, TrainingLevel.intermediate)),
+        ("incline_push_up", (TrainingLevel.beginner,)),
+    ):
+        exercise = exercise_library.get_exercise_by_id(exercise_id)
+        assert exercise.movement_pattern == MovementPattern.horizontal_push
+        assert exercise.training_levels == levels
+        assert exercise.equipment == (ExerciseEquipment.bodyweight,)
+        assert exercise.suitable_locations == (
+            SuitableLocation.home, SuitableLocation.gym, SuitableLocation.minimal_equipment,
+        )
+
+
 def test_catalog_loads_successfully():
     exercises = exercise_library.list_exercises()
 

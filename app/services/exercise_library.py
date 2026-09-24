@@ -28,7 +28,7 @@ _CATALOG: tuple[ExerciseDefinition, ...] = (
         impact_level=DemandLevel.low,
         balance_demand=DemandLevel.low,
         coordination_demand=DemandLevel.moderate,
-        suitable_locations=(SuitableLocation.home, SuitableLocation.minimal_equipment),
+        suitable_locations=(SuitableLocation.home, SuitableLocation.gym, SuitableLocation.minimal_equipment),
     ),
     ExerciseDefinition(
         id="incline_push_up",
@@ -43,7 +43,7 @@ _CATALOG: tuple[ExerciseDefinition, ...] = (
         impact_level=DemandLevel.low,
         balance_demand=DemandLevel.low,
         coordination_demand=DemandLevel.low,
-        suitable_locations=(SuitableLocation.home, SuitableLocation.minimal_equipment),
+        suitable_locations=(SuitableLocation.home, SuitableLocation.gym, SuitableLocation.minimal_equipment),
     ),
     ExerciseDefinition(
         id="dumbbell_bench_press",
