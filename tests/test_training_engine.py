@@ -3,7 +3,7 @@ import os
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.models.training_request import TrainingRecommendationRequest
+from app.models.training_request import CycleDiscomfort, TrainingRecommendationRequest
 from app.models.training_response import (
     Action,
     Intensity,
@@ -11,6 +11,7 @@ from app.models.training_response import (
     RecommendedSession,
     TrainingRecommendationResponse,
 )
+from app.services.cycle_context import NormalizedCycleContext
 from app.services import training_rules
 from app.services.training_engine import TrainingEngine
 
@@ -96,6 +97,40 @@ def test_high_cycle_discomfort_can_constrain_training():
         _request(sex="female", cycle_context={"phase": "menstruation", "discomfort": "high"})
     )
     assert result.action == Action.recovery
+
+
+def test_rules_engine_retains_cycle_decision_ownership(monkeypatch):
+    def fake_normalize(_request):
+        return NormalizedCycleContext(
+            available=True,
+            phase=None,
+            discomfort=None,
+            is_complete=True,
+            requires_more_data=False,
+            reason_codes=(ReasonCode.CYCLE_HIGH_DISCOMFORT,),
+        )
+
+    monkeypatch.setattr(training_rules, "normalize_cycle_context", fake_normalize)
+    result = engine.evaluate(_request(sex="female"))
+    assert result.action == Action.train
+
+
+def test_rules_engine_interprets_normalized_cycle_signals(monkeypatch):
+    def fake_normalize(_request):
+        return NormalizedCycleContext(
+            available=True,
+            phase=None,
+            discomfort=CycleDiscomfort.high,
+            is_complete=True,
+            requires_more_data=False,
+            reason_codes=(ReasonCode.CYCLE_HIGH_DISCOMFORT,),
+        )
+
+    monkeypatch.setattr(training_rules, "normalize_cycle_context", fake_normalize)
+    result = engine.evaluate(_request(sex="female", goal="strength", fatigue_level=1))
+    assert result.action == Action.recovery
+    assert result.recommended_session == RecommendedSession.mobility
+    assert result.intensity == Intensity.low
 
 
 def test_missing_recovery_time_uses_uncertainty():

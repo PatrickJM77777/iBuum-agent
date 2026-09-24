@@ -420,8 +420,7 @@ def test_menstruation_with_low_discomfort_does_not_force_recovery():
     assert body["action"] != "recovery"
 
 
-def test_non_menstruation_high_discomfort_does_not_trigger_cycle_rule():
-    # Discomfort alone, outside menstruation, should not trigger rule 5.
+def test_non_menstruation_high_discomfort_still_respects_reported_condition():
     response = _post(
         _base_payload(
             sex="female",
@@ -429,7 +428,8 @@ def test_non_menstruation_high_discomfort_does_not_trigger_cycle_rule():
         )
     )
     body = response.json()
-    assert "CYCLE_HIGH_DISCOMFORT" not in body["reason_codes"]
+    assert "CYCLE_HIGH_DISCOMFORT" in body["reason_codes"]
+    assert body["action"] == "recovery"
 
 
 def test_male_user_can_still_send_no_cycle_context():
@@ -743,12 +743,30 @@ def test_menstruation_with_none_discomfort_matches_no_cycle_context_exactly():
     assert without == with_none
 
 
+def test_non_menstrual_phase_with_none_discomfort_matches_no_cycle_context_exactly():
+    without = _post(_base_payload(sex="female")).json()
+    with_none = _post(
+        _base_payload(sex="female", cycle_context={"phase": "luteal", "discomfort": "none"})
+    ).json()
+    assert without == with_none
+
+
 def test_menstruation_with_mild_discomfort_matches_no_cycle_context_exactly():
     without = _post(_base_payload(sex="female")).json()
     with_mild = _post(
         _base_payload(sex="female", cycle_context={"phase": "menstruation", "discomfort": "mild"})
     ).json()
     assert without == with_mild
+
+
+def test_cycle_context_missing_discomfort_is_conservative_and_requests_more_data():
+    body = _post(
+        _base_payload(sex="female", cycle_context={"phase": "menstruation"})
+    ).json()
+    assert body["action"] == "train"
+    assert body["needs_more_data"] is True
+    assert "CYCLE_CONTEXT_INCOMPLETE" in body["reason_codes"]
+    assert "CYCLE_HIGH_DISCOMFORT" not in body["reason_codes"]
 
 
 def test_menstruation_with_moderate_discomfort_stays_on_train_action():

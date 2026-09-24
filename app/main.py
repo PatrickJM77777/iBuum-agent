@@ -15,8 +15,9 @@ from app.core.config import get_settings
 
 # Standard logger. Only technical metadata is ever logged here (exception
 # type/message, request path). Full request bodies (age, weight, cycle
-# context, user_id, etc.) are never logged — see app/services/training_rules.py
-# and app/api/routes/training.py, neither of which log the payload.
+# context, user_id, etc.) are never logged — see app/services/cycle_context.py,
+# app/services/training_rules.py, and app/api/routes/training.py, none of
+# which log the payload.
 logger = logging.getLogger("ibuum_agent")
 
 settings = get_settings()
