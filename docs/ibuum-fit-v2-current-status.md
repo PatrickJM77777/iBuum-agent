@@ -16,7 +16,7 @@ Before proposing or implementing any new V2 work, read these documents in this o
 3. `docs/ibuum-fit-v2-current-status.md`
 4. Recent merged/open PRs in the repository relevant to the task
 
-The architecture map defines **what belongs where**.  
+The Architecture Map defines **what belongs where**.  
 The Codex workflow defines **how work is executed**.  
 This file defines **where the project is now and what comes next**.
 
@@ -74,13 +74,13 @@ iBuum Digital web surface.
 
 ---
 
-## 5. Canonical architecture status
+## 5. Canonical governance status
 
-### Completed canonical governance
+Completed:
 
 - [x] **iBuum Fit V2 Architecture Map v1.0** merged to `main`
 - [x] **Codex Development Workflow v1.0** merged to `main`
-- [x] This Current Status document established as the operational restoration point
+- [x] **Current Status** established as the operational restoration point
 
 Architecture changes must be reviewed against the Architecture Map before implementation.
 
@@ -109,7 +109,7 @@ Current interpretation remains deterministic and Spanish-first. It explains appr
 
 ---
 
-## 7. Current backend behavior guarantees
+## 7. Protected backend behavior guarantees
 
 Current V1 behavior includes these protected semantics:
 
@@ -136,7 +136,7 @@ These semantics must not be weakened by frontend integration.
 - [x] `docs/base44-get-workout-interpretation-prompt-v1.md`
 - [x] contract tests for the future bridge
 
-### Not yet completed
+### Pending
 
 - [ ] Create Base44 server-side `getWorkoutInterpretation`
 - [ ] Run synthetic acceptance scenarios against the actual Base44 runtime
@@ -151,10 +151,10 @@ Protected rule: Base44 must not reimplement Training Rules, progression logic, c
 
 Repository: `PatrickJM77777/iBuum-fit-frontend`
 
-### Completed
+### Completed foundation
 
 - [x] Existing app/frontend baseline imported to GitHub
-- [x] Structural audit work completed before localization
+- [x] Structural audit completed before localization
 - [x] **Localization Foundation V1** merged
 - [x] `LocalizationProvider`
 - [x] semantic message IDs
@@ -165,64 +165,101 @@ Repository: `PatrickJM77777/iBuum-fit-frontend`
 - [x] `Intl` formatter seam
 - [x] Welcome/Claim/StartButton migrated with Spanish rendered parity preserved
 
-### Current localization limitations
+### Preferred Locale Persistence V1 — completed
 
-- preferred locale is not yet persisted
-- there is no language selector yet
-- browser locale is not automatically adopted
-- planned locales do not yet contain reviewed translations
-- only a narrow Welcome surface is migrated
+Merged in frontend **PR #3** (`feat: add Preferred Locale Persistence V1`).
 
----
+- [x] Dedicated `UserPreference` entity
+- [x] `preferred_locale` persisted separately from the existing `User` entity
+- [x] user-owned RLS for read/create/update/delete
+- [x] guest preference key: `ibuum_preferred_locale_guest`
+- [x] registered-locale validation
+- [x] deterministic precedence contract:
+  - explicit session locale
+  - authenticated persisted locale
+  - validated guest locale
+  - `es-ES`
+- [x] `preferredLocale` kept distinct from `resolvedLocale`
+- [x] planned locales may be stored without becoming active rendering locales
+- [x] no browser-language auto-detection
+- [x] no automatic guest-to-account promotion
+- [x] account/session-change protections in the authenticated persistence adapter
+- [x] existing Spanish Welcome parity preserved
+- [x] no new dependencies
 
-## 10. Next approved development block
-
-### **Preferred Locale Persistence V1**
-
-This is the next approved Codex block for `iBuum-fit-frontend`.
-
-Objective:
-
-Create the smallest safe persistence contract for `preferred_locale` on top of Localization Foundation V1, without yet adding a language-selection screen or broad translations.
-
-Expected architectural direction:
-
-`preferred_locale -> validated persistence -> locale resolver -> LocalizationProvider`
-
-This block should remain presentation-only and must not affect domain codes, routes, API enums, training decisions, onboarding order, auth semantics or Base44 backend logic.
-
-A dedicated closed Codex prompt must be prepared only after reviewing the latest `main` of `iBuum-fit-frontend`.
+Important: `LocalizationProvider` remains fixed to Spanish at this point. Persistence exists, but the UI does not yet expose language selection or activate additional catalogs.
 
 ---
 
-## 11. Development order after preferred locale
+## 10. Current localization limitations
 
-Subject to review after each merged block, the current intended sequence is:
+- there is no language-selection screen yet
+- authenticated preference hydration is not yet wired into runtime presentation
+- planned locales do not yet contain reviewed translation catalogs
+- only a narrow Welcome surface is migrated to semantic message IDs
+- browser locale is intentionally not automatically adopted
+- generated Kai/Kaia/Coach content remains a separate communication-localization problem
+- persisted domain values and API codes must remain language-neutral/canonical
 
-1. Preferred Locale Persistence V1
-2. Language Selection boundary/UI
-3. Reviewed translation catalogs and gradual screen migration
-4. Base44 `getWorkoutInterpretation` bridge implementation/acceptance
-5. Frontend adoption of the approved Interpretation API
-6. Session Outcome V1
-7. Training History V1
-8. Progression Engine V1
-9. Weekly Training State V1
-10. Program Planner V1
-11. Cycle Training History / Pattern Analyzer
-12. Personal Memory / Adaptive Profile / Human Adaptation Profile
-13. Coach Core / Intent Router / Communication Brain
-14. Daily Coach / Weekly Review / Live Workout
-15. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-16. iBuum for Coach expansion
+---
+
+## 11. Next approved development block
+
+### **Language Selection V1**
+
+This is the next approved bounded Codex block for `PatrickJM77777/iBuum-fit-frontend`.
+
+Goal: introduce the smallest safe language-selection boundary/UI on top of the already merged localization foundation and preference persistence contract.
+
+Expected high-level flow:
+
+`Welcome / explicit language action -> session choice -> guest or authenticated preference persistence -> preferred locale resolver -> safe presentation locale`
+
+Before implementation, inspect latest frontend `main` and decide the exact route/placement against existing auth, consent and onboarding behavior.
+
+### Protected boundaries for this block
+
+Language Selection V1 must not:
+
+- activate unreviewed translations
+- invent translated domain values
+- change Training Brain behavior
+- alter API enums/canonical codes
+- change consent semantics/versioning
+- bypass authentication required for user-scoped writes
+- restructure the entire onboarding flow
+- add browser-language auto-detection unless separately approved
+- start broad screen translation in the same PR
+
+If only `es-ES` has an active catalog, selecting a planned locale may persist the preference while rendering safely falls back to Spanish until the relevant catalog is reviewed and activated.
+
+---
+
+## 12. Directional development order after Language Selection V1
+
+Subject to review after each merged block:
+
+1. Language Selection V1
+2. Reviewed translation catalogs and gradual screen migration
+3. Base44 `getWorkoutInterpretation` bridge implementation/acceptance
+4. Frontend adoption of the approved Interpretation API
+5. Session Outcome V1
+6. Training History V1
+7. Progression Engine V1
+8. Weekly Training State V1
+9. Program Planner V1
+10. Cycle Training History / Pattern Analyzer
+11. Personal Memory / Adaptive Profile / Human Adaptation Profile
+12. Coach Core / Intent Router / Communication Brain
+13. Daily Coach / Weekly Review / Live Workout
+14. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+15. iBuum for Coach expansion
 
 This order is directional, not permission to bundle multiple blocks into one PR.
 
 ---
 
-## 12. V2 blocks not yet implemented
-
-Major planned blocks still pending include:
+## 13. Major V2 blocks still pending
 
 - [ ] Session Outcome
 - [ ] Training History
@@ -238,7 +275,7 @@ Major planned blocks still pending include:
 - [ ] Adaptive User Profile
 - [ ] Human Adaptation Profile
 - [ ] Personalization Layer
-- [ ] Coach Core
+- [ ] Coach Core V2
 - [ ] Intent Router
 - [ ] broader Safety/Guards layer
 - [ ] Communication Brain V2
@@ -270,7 +307,7 @@ The Architecture Map remains authoritative for responsibilities and boundaries o
 
 ---
 
-## 13. iBuum for Coach status
+## 14. iBuum for Coach status
 
 **Architecture defined, implementation pending.**
 
@@ -291,7 +328,7 @@ Rule: Coach AI may interpret metrics; it must not fabricate them.
 
 ---
 
-## 14. Inclusive / Human Adaptation status
+## 15. Inclusive / Human Adaptation status
 
 Inclusive adaptation is a first-class V2 architectural requirement, not a separate stigmatizing product.
 
@@ -313,7 +350,7 @@ Implementation remains pending.
 
 ---
 
-## 15. Form Check status
+## 16. Form Check status
 
 Form Check is architecturally reserved but not implemented as a production capability.
 
@@ -331,7 +368,7 @@ Do not treat Form Check as complete simply because the intent/configuration exis
 
 ---
 
-## 16. Kai / Kaia role
+## 17. Kai / Kaia role
 
 Kai and Kaia are presentation/assistant layers.
 
@@ -343,21 +380,19 @@ Protected chain:
 
 ---
 
-## 17. Current operational Codex note
+## 18. Current operational Codex note
 
-At the time this status snapshot was created, the observed Codex quota UI showed approximately:
+Quota is volatile and must be checked in the Codex UI when relevant.
 
-- 5-hour window: **14% remaining**
-- weekly limit: **47% remaining**
-- weekly reset shown for **1 October**
+During Preferred Locale Persistence V1, Codex reached the active usage limit after implementing the core files and resumed later in the same session to complete tests, documentation, branch and PR. This reinforces the canonical efficiency rule:
 
-This is a volatile operational note, not an architectural constraint. Re-check the Codex UI when quota matters rather than treating these values as permanent.
+**one bounded block per execution, no unnecessary exploration, no unrelated refactors.**
 
-Efficiency rule remains canonical regardless of quota: one bounded block, no unnecessary exploration, no unrelated refactors.
+Do not treat earlier percentage screenshots as permanent quota values.
 
 ---
 
-## 18. Chat/session recovery protocol
+## 19. Chat/session recovery protocol
 
 If a future chat loses context, use this instruction:
 
@@ -375,15 +410,15 @@ Do not ask the user to reconstruct the entire architecture from memory when thes
 
 ---
 
-## 19. Current next action
+## 20. Current next action
 
-**Prepare the closed Codex prompt for Preferred Locale Persistence V1 in `PatrickJM77777/iBuum-fit-frontend`, after reviewing the latest merged `main`.**
+**Review latest `main` of `PatrickJM77777/iBuum-fit-frontend` and prepare the closed Codex prompt for Language Selection V1.**
 
-Do not start the next block until the latest repository state has been inspected.
+Do not start translation catalogs or broad onboarding localization inside that same block unless explicitly approved after reviewing the exact selector boundary.
 
 ---
 
-## 20. Updating this document
+## 21. Updating this document
 
 Update this file when one of the following occurs:
 
@@ -396,4 +431,4 @@ Update this file when one of the following occurs:
 
 Do not update this file for every small commit.
 
-When changing status, preserve prior architectural truth in the Architecture Map and use Git history/PRs for detailed chronology.
+When changing status, preserve architectural truth in the Architecture Map and use Git history/PRs for detailed chronology.
