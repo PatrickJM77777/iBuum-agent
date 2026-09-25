@@ -40,16 +40,7 @@ Canonical execution flow:
 
 Default unit of work: **one small bounded block per Codex execution**.
 
-Every Codex prompt should define:
-
-- exact objective
-- in-scope behavior
-- out-of-scope behavior
-- allowed files/areas
-- protected files/areas
-- acceptance criteria
-- focused tests
-- explicit STOP condition
+Every Codex prompt must define objective, allowed/protected areas, out-of-scope behavior, acceptance criteria, focused tests and an explicit STOP condition.
 
 Do not use Codex for broad exploratory refactors when a bounded implementation can solve the task.
 
@@ -107,11 +98,7 @@ The following core backend blocks are already implemented/merged:
 
 Current interpretation remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
 
----
-
-## 7. Protected backend behavior guarantees
-
-Current V1 behavior includes these protected semantics:
+### Protected backend guarantees
 
 - explicit environment semantics are preserved
 - missing environment is not equivalent to empty environment
@@ -128,7 +115,7 @@ These semantics must not be weakened by frontend integration.
 
 ---
 
-## 8. Base44 integration status
+## 7. Base44 integration status
 
 ### Completed
 
@@ -147,19 +134,18 @@ Protected rule: Base44 must not reimplement Training Rules, progression logic, c
 
 ---
 
-## 9. Frontend V2 status
+## 8. Frontend V2 localization status
 
 Repository: `PatrickJM77777/iBuum-fit-frontend`
 
-### Completed foundation
+### Localization Foundation V1 — completed
 
-- [x] Existing app/frontend baseline imported to GitHub
-- [x] Structural audit completed before localization
-- [x] **Localization Foundation V1** merged
+Merged in frontend PR #2.
+
 - [x] `LocalizationProvider`
 - [x] semantic message IDs
 - [x] Spanish `es-ES` catalog
-- [x] locale registry
+- [x] canonical locale registry
 - [x] planned locale entries for `en-GB`, `fr-FR`, `it-IT`, `pt-PT`
 - [x] fallback behavior
 - [x] `Intl` formatter seam
@@ -167,80 +153,110 @@ Repository: `PatrickJM77777/iBuum-fit-frontend`
 
 ### Preferred Locale Persistence V1 — completed
 
-Merged in frontend **PR #3** (`feat: add Preferred Locale Persistence V1`).
+Merged in frontend PR #3.
 
-- [x] Dedicated `UserPreference` entity
-- [x] `preferred_locale` persisted separately from the existing `User` entity
-- [x] user-owned RLS for read/create/update/delete
-- [x] guest preference key: `ibuum_preferred_locale_guest`
-- [x] registered-locale validation
-- [x] deterministic precedence contract:
-  - explicit session locale
-  - authenticated persisted locale
-  - validated guest locale
-  - `es-ES`
-- [x] `preferredLocale` kept distinct from `resolvedLocale`
-- [x] planned locales may be stored without becoming active rendering locales
+- [x] dedicated `UserPreference` entity
+- [x] `preferred_locale` stored separately from `User`
+- [x] user-owned CRUD RLS
+- [x] guest key `ibuum_preferred_locale_guest`
+- [x] exact registered-locale validation
+- [x] deterministic precedence: explicit session -> authenticated preference -> guest preference -> `es-ES`
+- [x] `preferredLocale` distinct from `resolvedLocale`
+- [x] planned locales may be stored without becoming renderable
 - [x] no browser-language auto-detection
 - [x] no automatic guest-to-account promotion
-- [x] account/session-change protections in the authenticated persistence adapter
-- [x] existing Spanish Welcome parity preserved
-- [x] no new dependencies
+- [x] account/session-change protections
 
-Important: `LocalizationProvider` remains fixed to Spanish at this point. Persistence exists, but the UI does not yet expose language selection or activate additional catalogs.
+### Language Selection V1 — completed
+
+Merged in frontend PR #4, with auth-boundary hotfix merged in PR #5.
+
+Current approved journey:
+
+`Welcome -> /onboarding/language -> /onboarding/profile -> existing auth/consent/persona onboarding`
+
+Implemented behavior:
+
+- [x] explicit Language Selection screen
+- [x] five choices rendered from the canonical locale registry
+- [x] native locale names, no flag-based language identity
+- [x] guest and authenticated users can make an explicit language choice
+- [x] authenticated writes use `setAuthenticatedPreferredLocale(locale)` without caller ownership IDs
+- [x] guest writes use the existing guest preference boundary
+- [x] guest storage failure may retain a session-only choice without claiming durable persistence
+- [x] authenticated save failures remain on the selector and are retryable
+- [x] planned locales remain safely rendered through `es-ES`
+- [x] `LocalizationProvider` exposes `preferredLocale`, safe renderable `locale`, `sessionLocale` and validated `setSessionLocale`
+- [x] `document.documentElement.lang` follows the resolved/renderable locale
+- [x] Profile auth/consent semantics remain unchanged
+- [x] `/onboarding/language` may pass the auth boundary for no error or `auth_required`
+- [x] `user_not_registered` is not bypassed
+- [x] other routes retain existing `auth_required` login redirect behavior
+- [x] no browser-language detection
+- [x] no additional translation catalogs activated
+- [x] no domain/training/API behavior changed
+
+PR #5 validation reported 31/31 repository Node tests passing, build passing, focused lint clean and `git diff --check` passing.
 
 ---
 
-## 10. Current localization limitations
+## 9. Current localization limitations
 
-- there is no language-selection screen yet
-- authenticated preference hydration is not yet wired into runtime presentation
-- planned locales do not yet contain reviewed translation catalogs
-- only a narrow Welcome surface is migrated to semantic message IDs
+- only `es-ES` is an active reviewed catalog
+- `en-GB`, `fr-FR`, `it-IT`, `pt-PT` remain registered but not yet active translation catalogs
+- only Welcome and Language Selection use the localization boundary meaningfully; most onboarding/product copy remains hard-coded Spanish
+- authenticated preference hydration is screen-local on Language Selection rather than a global auth/provider hydration system
 - browser locale is intentionally not automatically adopted
-- generated Kai/Kaia/Coach content remains a separate communication-localization problem
-- persisted domain values and API codes must remain language-neutral/canonical
+- generated Kai/Kaia/Coach content remains a separate Communication Brain/localization problem
+- persisted domain values and API codes must remain language-neutral/canonical and must never be translated as identifiers
 
 ---
 
-## 11. Next approved development block
+## 10. Next approved development block
 
-### **Language Selection V1**
+### **Reviewed Translation Catalogs V1 — Welcome + Language Selection**
 
 This is the next approved bounded Codex block for `PatrickJM77777/iBuum-fit-frontend`.
 
-Goal: introduce the smallest safe language-selection boundary/UI on top of the already merged localization foundation and preference persistence contract.
+Goal: extend the localization system from Spanish-only rendering to reviewed translation catalogs for the surfaces that are **already semantic and bounded**, without translating the entire application.
 
-Expected high-level flow:
+Initial scope is limited to:
 
-`Welcome / explicit language action -> session choice -> guest or authenticated preference persistence -> preferred locale resolver -> safe presentation locale`
+- Welcome
+- Claim/StartButton strings already owned by the Welcome localization surface
+- Language Selection
 
-Before implementation, inspect latest frontend `main` and decide the exact route/placement against existing auth, consent and onboarding behavior.
+Target registered locales:
 
-### Protected boundaries for this block
+- `en-GB`
+- `fr-FR`
+- `it-IT`
+- `pt-PT`
 
-Language Selection V1 must not:
+Before implementation, inspect latest frontend `main`, enumerate the exact existing semantic message IDs and define the review/activation rule for each catalog.
 
-- activate unreviewed translations
-- invent translated domain values
-- change Training Brain behavior
-- alter API enums/canonical codes
-- change consent semantics/versioning
-- bypass authentication required for user-scoped writes
-- restructure the entire onboarding flow
-- add browser-language auto-detection unless separately approved
-- start broad screen translation in the same PR
+### Protected boundaries
 
-If only `es-ES` has an active catalog, selecting a planned locale may persist the preference while rendering safely falls back to Spanish until the relevant catalog is reviewed and activated.
+This block must not:
+
+- translate canonical domain codes, API enums or persisted training answers
+- broaden into all onboarding screens
+- change auth or consent semantics
+- change Training Brain, Coach/Kai/Kaia decisions or Agent APIs
+- introduce browser-language detection
+- silently activate incomplete/unreviewed catalogs
+- add an external i18n dependency unless separately approved
+
+If a target catalog is incomplete or not reviewed, it must remain non-renderable and continue to fall back safely to Spanish.
 
 ---
 
-## 12. Directional development order after Language Selection V1
+## 11. Directional development order after Reviewed Translation Catalogs V1
 
 Subject to review after each merged block:
 
-1. Language Selection V1
-2. Reviewed translation catalogs and gradual screen migration
+1. Reviewed Translation Catalogs V1 — Welcome + Language Selection
+2. Gradual onboarding screen localization in small bounded groups
 3. Base44 `getWorkoutInterpretation` bridge implementation/acceptance
 4. Frontend adoption of the approved Interpretation API
 5. Session Outcome V1
@@ -259,7 +275,7 @@ This order is directional, not permission to bundle multiple blocks into one PR.
 
 ---
 
-## 13. Major V2 blocks still pending
+## 12. Major V2 blocks still pending
 
 - [ ] Session Outcome
 - [ ] Training History
@@ -307,42 +323,11 @@ The Architecture Map remains authoritative for responsibilities and boundaries o
 
 ---
 
-## 14. iBuum for Coach status
-
-**Architecture defined, implementation pending.**
-
-Planned professional capabilities include:
-
-- Coach Dashboard
-- client invitation/linking
-- Trainer Plans
-- Planned vs Performed
-- adherence
-- consistency
-- deterministic scores
-- pattern detection
-- attention queue
-- Coach AI Assistant for interpretation of calculated data
-
-Rule: Coach AI may interpret metrics; it must not fabricate them.
-
----
-
-## 15. Inclusive / Human Adaptation status
+## 13. Inclusive / Human Adaptation status
 
 Inclusive adaptation is a first-class V2 architectural requirement, not a separate stigmatizing product.
 
-Planned Human Adaptation Profile may support declared context such as:
-
-- mobility limitations
-- sensory limitations
-- communication needs
-- cognitive accessibility
-- disability
-- Down syndrome
-- training restrictions
-- instruction complexity preferences
-- dietary restrictions/allergies/celiac requirements
+The future Human Adaptation Profile may support declared context such as mobility/sensory limitations, communication or cognitive accessibility needs, disability, Down syndrome, training restrictions and instruction-complexity preferences.
 
 The system adapts experience/options. It must not diagnose users.
 
@@ -350,7 +335,7 @@ Implementation remains pending.
 
 ---
 
-## 16. Form Check status
+## 14. Form Check status
 
 Form Check is architecturally reserved but not implemented as a production capability.
 
@@ -368,7 +353,7 @@ Do not treat Form Check as complete simply because the intent/configuration exis
 
 ---
 
-## 17. Kai / Kaia role
+## 15. Kai / Kaia role
 
 Kai and Kaia are presentation/assistant layers.
 
@@ -380,11 +365,11 @@ Protected chain:
 
 ---
 
-## 18. Current operational Codex note
+## 16. Operational Codex note
 
 Quota is volatile and must be checked in the Codex UI when relevant.
 
-During Preferred Locale Persistence V1, Codex reached the active usage limit after implementing the core files and resumed later in the same session to complete tests, documentation, branch and PR. This reinforces the canonical efficiency rule:
+During Preferred Locale Persistence V1, Codex reached the active usage limit after implementing core files and resumed later in the same session. The canonical efficiency rule remains:
 
 **one bounded block per execution, no unnecessary exploration, no unrelated refactors.**
 
@@ -392,7 +377,7 @@ Do not treat earlier percentage screenshots as permanent quota values.
 
 ---
 
-## 19. Chat/session recovery protocol
+## 17. Chat/session recovery protocol
 
 If a future chat loses context, use this instruction:
 
@@ -406,19 +391,19 @@ Expected recovery procedure:
 4. Inspect latest relevant PRs/commits in GitHub
 5. Confirm the current next block before drafting a Codex prompt
 
-Do not ask the user to reconstruct the entire architecture from memory when these canonical sources are available.
+Do not ask the user to reconstruct the architecture from memory when these canonical sources are available.
 
 ---
 
-## 20. Current next action
+## 18. Current next action
 
-**Review latest `main` of `PatrickJM77777/iBuum-fit-frontend` and prepare the closed Codex prompt for Language Selection V1.**
+**Review latest `main` of `PatrickJM77777/iBuum-fit-frontend` and prepare the closed Codex prompt for Reviewed Translation Catalogs V1 — Welcome + Language Selection.**
 
-Do not start translation catalogs or broad onboarding localization inside that same block unless explicitly approved after reviewing the exact selector boundary.
+Do not begin broad onboarding localization inside the same block.
 
 ---
 
-## 21. Updating this document
+## 19. Updating this document
 
 Update this file when one of the following occurs:
 
