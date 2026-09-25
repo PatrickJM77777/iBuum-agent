@@ -95,6 +95,20 @@ The following core backend blocks are already implemented/merged:
 - [x] Interpretation Core V1
 - [x] Interpretation API V1
 - [x] Base44 Integration Contract V1
+- [x] Session Outcome V1 — PR #27, merge commit `9852a1d233955a97d5e6b61370c88de2464d31a6`
+- [x] Training History V1 — PR #28, merge commit `04a81e3b45446d1cc58c780771a0aabe4d7aea1d`
+- [x] Progression Engine V1 — PR #29, merge commit `bd55e8852bd7c7252841f9afef91fa4c25645ce2`
+
+Canonical pipeline status:
+
+```text
+Workout Execution
+ -> Session Outcome V1 ✅
+ -> Training History V1 ✅
+ -> Progression Engine V1 ✅
+ -> Weekly Training State V1 ← NEXT
+ -> Program Planner V1
+```
 
 Current Interpretation Core remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
 
@@ -117,25 +131,45 @@ These semantics must not be weakened by Base44 or frontend integration.
 
 ## 7. Base44 integration status
 
-### Completed contract work
+### Completed contract and bridge implementation
 
 - [x] `docs/base44-integration-contract-v1.md`
 - [x] `docs/base44-get-workout-interpretation-prompt-v1.md`
-- [x] contract tests for the future bridge
+- [x] contract tests for the bridge
+- [x] Base44 server-side `getWorkoutInterpretation` Bridge V1 — frontend PR #7, merge commit `8eab5315ef66c86fb327a3361d0f296b2d7fee79`
+- [x] local validation of request allowlisting, auth, server-only URL/API-key handling, timeout and error mapping
+- [x] approved synthetic cases covered by local Agent fixtures and bridge tests; this does not establish live Base44 runtime acceptance
 
 Approved architecture:
 
 `Base44 UI -> authenticated server-side getWorkoutInterpretation -> POST ${IBUUM_AGENT_URL}/api/v1/interpretation -> recommendation + workout + interpretation + versions -> UI`
 
-Existing Base44 Agent-facing functions such as `getTrainingRecommendation` and `getWorkout` are integration adapters, not decision engines. The new bridge must remain additive and must not duplicate Training Rules, fatigue/cycle evaluation, exercise selection, interpretation logic or fallback workouts.
+Existing Base44 Agent-facing functions such as `getTrainingRecommendation` and `getWorkout` are integration adapters, not decision engines. The implemented bridge remains additive and must not duplicate Training Rules, fatigue/cycle evaluation, exercise selection, interpretation logic or fallback workouts.
 
-### Pending
+### Paused / pending
 
-- [ ] Implement Base44 server-side `getWorkoutInterpretation`
-- [ ] Validate request allowlisting, auth, server-only URL/API-key handling, timeout and error mapping
-- [ ] Run the approved synthetic acceptance cases
-- [ ] Confirm runtime behavior against the actual Base44 environment when available
-- [ ] Wire frontend UI only after bridge acceptance
+- [ ] Live Base44 runtime acceptance — paused because Base44 credits/runtime access are currently unavailable
+- [ ] Run the approved acceptance cases in the actual Base44 environment, including platform auth/secrets and real connectivity
+- [ ] Frontend adoption / UI wiring — pending until live runtime acceptance
+
+The merged implementation preserves the contract's environment distinctions, explicit presenter semantics, server-only secret handling, 45-second deadline, no automatic retry in phase 1, deterministic error envelope and no sensitive payload logging.
+
+### Protected bridge boundaries
+
+The bridge must not:
+
+- call recommendation/workout endpoints separately to reconstruct a competing answer
+- re-evaluate fatigue, recovery, cycle, goal, level, equipment or history
+- infer presenter from sex/profile
+- invent bodyweight or equipment
+- collapse omitted/null/empty environment states
+- rewrite backend decision fields or interpretation text
+- add a second LLM/AI interpretation step
+- expose `IBUUM_API_KEY` or trusted server URL to the browser
+- trust client-supplied identity as authentication
+- change existing Base44 bridge functions except where a separately proven shared safety seam is strictly required
+- wire frontend UI before live runtime acceptance
+- modify localization, consent, onboarding, Training Engine or progression systems
 
 Protected rule: Base44 must not reimplement Training Rules, progression logic, cycle adaptation or exercise selection.
 
@@ -249,46 +283,15 @@ These limitations are accepted for now. **Broad onboarding localization is defer
 
 ## 10. Next approved development block
 
-### **Base44 `getWorkoutInterpretation` Bridge V1 — implementation and acceptance**
+### **Weekly Training State V1**
 
-This is the next approved bounded Codex block.
+This is the next approved bounded Codex development block in `PatrickJM77777/iBuum-agent`.
 
-Primary implementation surface: the existing Base44 function layer in `PatrickJM77777/iBuum-fit-frontend`, reviewed against the authoritative integration contract in `PatrickJM77777/iBuum-agent`.
+Weekly Training State is an **internal domain aggregate** intended to represent the current training week. It is **not the user-facing Weekly Review**.
 
-Goal: implement the smallest safe server-side bridge from the Base44 product runtime to the already-approved Interpretation API V1 without changing domain decisions.
+It is expected to combine factual weekly context such as planned, completed, partial and remaining sessions, workload/volume context, fatigue, recovery and adherence. It is a future consumer of Training History and Progression outputs where appropriate.
 
-Required source-of-truth documents before implementation:
-
-1. `docs/base44-integration-contract-v1.md`
-2. `docs/base44-get-workout-interpretation-prompt-v1.md`
-3. current Interpretation API/OpenAPI models in `iBuum-agent`
-4. latest existing Base44 bridge functions in `iBuum-fit-frontend`, especially `getTrainingRecommendation` and `getWorkout`
-5. latest canonical Current Status and Codex workflow
-
-Expected high-level behavior:
-
-`authenticated Base44 server function -> allowlisted request -> one POST /api/v1/interpretation -> unchanged approved success object -> Base44 caller`
-
-The implementation must preserve the contract's environment distinctions, explicit presenter semantics, server-only secret handling, 45-second deadline, no automatic retry in phase 1, deterministic error envelope and no sensitive payload logging.
-
-### Protected boundaries for this block
-
-The bridge must not:
-
-- call recommendation/workout endpoints separately to reconstruct a competing answer
-- re-evaluate fatigue, recovery, cycle, goal, level, equipment or history
-- infer presenter from sex/profile
-- invent bodyweight or equipment
-- collapse omitted/null/empty environment states
-- rewrite backend decision fields or interpretation text
-- add a second LLM/AI interpretation step
-- expose `IBUUM_API_KEY` or trusted server URL to the browser
-- trust client-supplied identity as authentication
-- change existing Base44 bridge functions except where a separately proven shared safety seam is strictly required
-- wire frontend UI in the same block
-- modify localization, consent, onboarding, Training Engine or progression systems
-
-The bridge must be tested against the synthetic cases already defined by the contract before frontend adoption.
+Weekly Training State is not yet implemented and is not implemented in this docs-only PR. Its detailed implementation contract belongs in a separate approved bounded prompt, reviewed against the canonical Architecture Map and Codex workflow.
 
 ---
 
@@ -296,19 +299,18 @@ The bridge must be tested against the synthetic cases already defined by the con
 
 Subject to review after each merged block:
 
-1. Base44 `getWorkoutInterpretation` Bridge V1 — implementation/acceptance
-2. Frontend adoption of the approved Interpretation API
-3. Session Outcome V1
-4. Training History V1
-5. Progression Engine V1
-6. Weekly Training State V1
-7. Program Planner V1
-8. Cycle Training History / Pattern Analyzer
-9. Personal Memory / Adaptive Profile / Human Adaptation Profile
-10. Coach Core / Intent Router / Communication Brain
-11. Daily Coach / Weekly Review / Live Workout
-12. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-13. iBuum for Coach expansion
+1. Weekly Training State V1 — current next approved development block
+2. Program Planner V1
+3. Planner / Rescheduling
+4. Recovery / Daily State Engine
+5. Cycle Training History / Pattern Analyzer
+6. Personal Memory / Adaptive Profile / Human Adaptation Profile
+7. Coach Core / Intent Router / Communication Brain
+8. Daily Coach / Weekly Review / Live Workout
+9. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+10. iBuum for Coach expansion
+
+Base44 bridge implementation, Session Outcome V1, Training History V1 and Progression Engine V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
 
 Additional onboarding localization can proceed later in separate bounded groups when product priority requires it; it is no longer an immediate prerequisite for Agent integration.
 
@@ -316,11 +318,11 @@ This order is directional, not permission to bundle multiple blocks into one PR.
 
 ---
 
-## 12. Major V2 blocks still pending
+## 12. Major V2 blocks — completed / pending
 
-- [ ] Session Outcome
-- [ ] Training History
-- [ ] Progression Engine
+- [x] Session Outcome V1
+- [x] Training History V1
+- [x] Progression Engine V1
 - [ ] Weekly Training State
 - [ ] Program Planner
 - [ ] Planner / Rescheduling
@@ -438,9 +440,9 @@ Do not ask the user to reconstruct the architecture from memory when these canon
 
 ## 18. Current next action
 
-**Review the latest Base44 function implementation in `PatrickJM77777/iBuum-fit-frontend` against `docs/base44-integration-contract-v1.md` and `docs/base44-get-workout-interpretation-prompt-v1.md`, then prepare the closed Codex prompt for Base44 `getWorkoutInterpretation` Bridge V1.**
+**Prepare the closed Codex prompt for Weekly Training State V1, using the canonical Architecture Map, Codex workflow and merged Session Outcome, Training History and Progression Engine documentation.**
 
-Do not wire the frontend UI, start Session Outcome, or broaden localization in that same block.
+Keep this to one bounded block per Codex execution. Weekly Training State implementation requires that separate approved prompt; this PR only synchronizes status. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
 
 ---
 
