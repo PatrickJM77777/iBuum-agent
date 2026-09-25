@@ -14,7 +14,7 @@ Before proposing or implementing any new V2 work, read these documents in this o
 1. `docs/ibuum-fit-v2-architecture-map-v1.md`
 2. `docs/codex-development-workflow-v1.md`
 3. `docs/ibuum-fit-v2-current-status.md`
-4. Recent merged/open PRs in the repository relevant to the task
+4. Recent merged/open PRs relevant to the task
 
 The Architecture Map defines **what belongs where**.  
 The Codex workflow defines **how work is executed**.  
@@ -52,7 +52,7 @@ Do not use Codex for broad exploratory refactors when a bounded implementation c
 Canonical V2 architecture, deterministic domain intelligence, APIs, orchestration, interpretation, future longitudinal intelligence and core backend contracts.
 
 ### `PatrickJM77777/iBuum-fit-frontend`
-Current iBuum Fit app/frontend surface being evolved toward V2.
+Current iBuum Fit app/frontend surface, Base44 product bindings/functions and presentation layer being evolved toward V2.
 
 ### `PatrickJM77777/WebiBuumfit`
 iBuum Fit web surface.
@@ -96,7 +96,7 @@ The following core backend blocks are already implemented/merged:
 - [x] Interpretation API V1
 - [x] Base44 Integration Contract V1
 
-Current interpretation remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
+Current Interpretation Core remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
 
 ### Protected backend guarantees
 
@@ -111,23 +111,30 @@ Current interpretation remains deterministic and Spanish-first. It explains appr
 - unknown history is not treated as confirmed recovery failure
 - rest/recovery/more-data states remain domain results rather than frontend inventions
 
-These semantics must not be weakened by frontend integration.
+These semantics must not be weakened by Base44 or frontend integration.
 
 ---
 
 ## 7. Base44 integration status
 
-### Completed
+### Completed contract work
 
 - [x] `docs/base44-integration-contract-v1.md`
 - [x] `docs/base44-get-workout-interpretation-prompt-v1.md`
 - [x] contract tests for the future bridge
 
+Approved architecture:
+
+`Base44 UI -> authenticated server-side getWorkoutInterpretation -> POST ${IBUUM_AGENT_URL}/api/v1/interpretation -> recommendation + workout + interpretation + versions -> UI`
+
+Existing Base44 Agent-facing functions such as `getTrainingRecommendation` and `getWorkout` are integration adapters, not decision engines. The new bridge must remain additive and must not duplicate Training Rules, fatigue/cycle evaluation, exercise selection, interpretation logic or fallback workouts.
+
 ### Pending
 
-- [ ] Create Base44 server-side `getWorkoutInterpretation`
-- [ ] Run synthetic acceptance scenarios against the actual Base44 runtime
-- [ ] Confirm authentication/secrets/runtime behavior
+- [ ] Implement Base44 server-side `getWorkoutInterpretation`
+- [ ] Validate request allowlisting, auth, server-only URL/API-key handling, timeout and error mapping
+- [ ] Run the approved synthetic acceptance cases
+- [ ] Confirm runtime behavior against the actual Base44 environment when available
 - [ ] Wire frontend UI only after bridge acceptance
 
 Protected rule: Base44 must not reimplement Training Rules, progression logic, cycle adaptation or exercise selection.
@@ -146,7 +153,6 @@ Merged in frontend PR #2.
 - [x] semantic message IDs
 - [x] Spanish `es-ES` catalog
 - [x] canonical locale registry
-- [x] planned locale entries for `en-GB`, `fr-FR`, `it-IT`, `pt-PT`
 - [x] fallback behavior
 - [x] `Intl` formatter seam
 - [x] Welcome/Claim/StartButton migrated with Spanish rendered parity preserved
@@ -162,7 +168,6 @@ Merged in frontend PR #3.
 - [x] exact registered-locale validation
 - [x] deterministic precedence: explicit session -> authenticated preference -> guest preference -> `es-ES`
 - [x] `preferredLocale` distinct from `resolvedLocale`
-- [x] planned locales may be stored without becoming renderable
 - [x] no browser-language auto-detection
 - [x] no automatic guest-to-account promotion
 - [x] account/session-change protections
@@ -178,98 +183,134 @@ Current approved journey:
 Implemented behavior:
 
 - [x] explicit Language Selection screen
-- [x] five choices rendered from the canonical locale registry
-- [x] native locale names, no flag-based language identity
-- [x] guest and authenticated users can make an explicit language choice
-- [x] authenticated writes use `setAuthenticatedPreferredLocale(locale)` without caller ownership IDs
-- [x] guest writes use the existing guest preference boundary
-- [x] guest storage failure may retain a session-only choice without claiming durable persistence
-- [x] authenticated save failures remain on the selector and are retryable
-- [x] planned locales remain safely rendered through `es-ES`
-- [x] `LocalizationProvider` exposes `preferredLocale`, safe renderable `locale`, `sessionLocale` and validated `setSessionLocale`
-- [x] `document.documentElement.lang` follows the resolved/renderable locale
+- [x] five choices from the canonical locale registry
+- [x] native locale names and no flag-based identity
+- [x] guest and authenticated explicit selection
+- [x] authenticated persistence without caller ownership IDs
+- [x] guest persistence using the existing guest boundary
+- [x] session-only recovery path when guest storage fails
+- [x] retryable authenticated save errors
+- [x] `LocalizationProvider` exposes `preferredLocale`, renderable `locale`, `sessionLocale` and validated `setSessionLocale`
+- [x] `document.documentElement.lang` follows the renderable locale
+- [x] `/onboarding/language` may pass `auth_required` without bypassing `user_not_registered`
 - [x] Profile auth/consent semantics remain unchanged
-- [x] `/onboarding/language` may pass the auth boundary for no error or `auth_required`
-- [x] `user_not_registered` is not bypassed
-- [x] other routes retain existing `auth_required` login redirect behavior
 - [x] no browser-language detection
-- [x] no additional translation catalogs activated
 - [x] no domain/training/API behavior changed
 
-PR #5 validation reported 31/31 repository Node tests passing, build passing, focused lint clean and `git diff --check` passing.
+### Reviewed Translation Catalogs V1 — completed
+
+Merged in frontend PR #6 (`feat: add Reviewed Translation Catalogs V1`), merge commit `173ac7205c6d90bac3536d528844aed3021f5b63`.
+
+Reviewed active locales:
+
+- [x] `es-ES`
+- [x] `en-GB`
+- [x] `fr-FR`
+- [x] `it-IT`
+- [x] `pt-PT`
+
+Implemented contract:
+
+- [x] all five locales are active in the single canonical registry
+- [x] all five catalogs are registered in the existing localization core
+- [x] exact semantic-key parity across catalogs: 18 reviewed keys
+- [x] Spanish remains default and fallback
+- [x] unknown/unregistered locale resolves safely to Spanish
+- [x] missing active-catalog message retains Spanish fallback and diagnostics
+- [x] Welcome renders reviewed localized claim, description, logo alt and CTA
+- [x] Language Selection renders localized title, subtitle, CTA, loading/errors and session-only action
+- [x] explicit locale selection immediately updates session presentation
+- [x] `preferredLocale === resolvedLocale` for the five active locales
+- [x] document language follows each locale's configured `htmlLang`
+- [x] non-Spanish choices show an explicit partial-coverage notice
+- [x] the shared onboarding header retains Spanish `Volver` by default while Language Selection receives a localized accessibility label
+- [x] no browser-language detection
+- [x] persistence/auth/consent semantics unchanged
+- [x] Profile and the rest of onboarding intentionally remain outside this translated surface
+- [x] no domain/API/training behavior changed
+- [x] no dependencies or lockfiles changed
+
+PR #6 reported 36/36 Node tests passing, build passing, focused lint clean and `git diff --check` passing. Global lint still reports only the pre-existing unused imports in unchanged `ExperienceCard.jsx`.
 
 ---
 
-## 9. Current localization limitations
+## 9. Current localization limitations / deferred work
 
-- only `es-ES` is an active reviewed catalog
-- `en-GB`, `fr-FR`, `it-IT`, `pt-PT` remain registered but not yet active translation catalogs
-- only Welcome and Language Selection use the localization boundary meaningfully; most onboarding/product copy remains hard-coded Spanish
-- authenticated preference hydration is screen-local on Language Selection rather than a global auth/provider hydration system
-- browser locale is intentionally not automatically adopted
-- generated Kai/Kaia/Coach content remains a separate Communication Brain/localization problem
-- persisted domain values and API codes must remain language-neutral/canonical and must never be translated as identifiers
+- reviewed translations currently cover Welcome and Language Selection only
+- Profile, consent and the remainder of onboarding/product surfaces remain primarily Spanish
+- authenticated persisted preference hydration is still screen-local on Language Selection rather than global app startup hydration
+- no browser locale auto-detection by design
+- generated Kai/Kaia/Coach content remains a separate Communication Brain/localization concern
+- domain values, API enums, reason codes and persisted training identifiers remain canonical and must never be translated as identifiers
+
+These limitations are accepted for now. **Broad onboarding localization is deferred and is not a blocker for returning to Agent integration and V2 motor-adjacent work.**
 
 ---
 
 ## 10. Next approved development block
 
-### **Reviewed Translation Catalogs V1 — Welcome + Language Selection**
+### **Base44 `getWorkoutInterpretation` Bridge V1 — implementation and acceptance**
 
-This is the next approved bounded Codex block for `PatrickJM77777/iBuum-fit-frontend`.
+This is the next approved bounded Codex block.
 
-Goal: extend the localization system from Spanish-only rendering to reviewed translation catalogs for the surfaces that are **already semantic and bounded**, without translating the entire application.
+Primary implementation surface: the existing Base44 function layer in `PatrickJM77777/iBuum-fit-frontend`, reviewed against the authoritative integration contract in `PatrickJM77777/iBuum-agent`.
 
-Initial scope is limited to:
+Goal: implement the smallest safe server-side bridge from the Base44 product runtime to the already-approved Interpretation API V1 without changing domain decisions.
 
-- Welcome
-- Claim/StartButton strings already owned by the Welcome localization surface
-- Language Selection
+Required source-of-truth documents before implementation:
 
-Target registered locales:
+1. `docs/base44-integration-contract-v1.md`
+2. `docs/base44-get-workout-interpretation-prompt-v1.md`
+3. current Interpretation API/OpenAPI models in `iBuum-agent`
+4. latest existing Base44 bridge functions in `iBuum-fit-frontend`, especially `getTrainingRecommendation` and `getWorkout`
+5. latest canonical Current Status and Codex workflow
 
-- `en-GB`
-- `fr-FR`
-- `it-IT`
-- `pt-PT`
+Expected high-level behavior:
 
-Before implementation, inspect latest frontend `main`, enumerate the exact existing semantic message IDs and define the review/activation rule for each catalog.
+`authenticated Base44 server function -> allowlisted request -> one POST /api/v1/interpretation -> unchanged approved success object -> Base44 caller`
 
-### Protected boundaries
+The implementation must preserve the contract's environment distinctions, explicit presenter semantics, server-only secret handling, 45-second deadline, no automatic retry in phase 1, deterministic error envelope and no sensitive payload logging.
 
-This block must not:
+### Protected boundaries for this block
 
-- translate canonical domain codes, API enums or persisted training answers
-- broaden into all onboarding screens
-- change auth or consent semantics
-- change Training Brain, Coach/Kai/Kaia decisions or Agent APIs
-- introduce browser-language detection
-- silently activate incomplete/unreviewed catalogs
-- add an external i18n dependency unless separately approved
+The bridge must not:
 
-If a target catalog is incomplete or not reviewed, it must remain non-renderable and continue to fall back safely to Spanish.
+- call recommendation/workout endpoints separately to reconstruct a competing answer
+- re-evaluate fatigue, recovery, cycle, goal, level, equipment or history
+- infer presenter from sex/profile
+- invent bodyweight or equipment
+- collapse omitted/null/empty environment states
+- rewrite backend decision fields or interpretation text
+- add a second LLM/AI interpretation step
+- expose `IBUUM_API_KEY` or trusted server URL to the browser
+- trust client-supplied identity as authentication
+- change existing Base44 bridge functions except where a separately proven shared safety seam is strictly required
+- wire frontend UI in the same block
+- modify localization, consent, onboarding, Training Engine or progression systems
+
+The bridge must be tested against the synthetic cases already defined by the contract before frontend adoption.
 
 ---
 
-## 11. Directional development order after Reviewed Translation Catalogs V1
+## 11. Directional development order from current state
 
 Subject to review after each merged block:
 
-1. Reviewed Translation Catalogs V1 — Welcome + Language Selection
-2. Gradual onboarding screen localization in small bounded groups
-3. Base44 `getWorkoutInterpretation` bridge implementation/acceptance
-4. Frontend adoption of the approved Interpretation API
-5. Session Outcome V1
-6. Training History V1
-7. Progression Engine V1
-8. Weekly Training State V1
-9. Program Planner V1
-10. Cycle Training History / Pattern Analyzer
-11. Personal Memory / Adaptive Profile / Human Adaptation Profile
-12. Coach Core / Intent Router / Communication Brain
-13. Daily Coach / Weekly Review / Live Workout
-14. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-15. iBuum for Coach expansion
+1. Base44 `getWorkoutInterpretation` Bridge V1 — implementation/acceptance
+2. Frontend adoption of the approved Interpretation API
+3. Session Outcome V1
+4. Training History V1
+5. Progression Engine V1
+6. Weekly Training State V1
+7. Program Planner V1
+8. Cycle Training History / Pattern Analyzer
+9. Personal Memory / Adaptive Profile / Human Adaptation Profile
+10. Coach Core / Intent Router / Communication Brain
+11. Daily Coach / Weekly Review / Live Workout
+12. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+13. iBuum for Coach expansion
+
+Additional onboarding localization can proceed later in separate bounded groups when product priority requires it; it is no longer an immediate prerequisite for Agent integration.
 
 This order is directional, not permission to bundle multiple blocks into one PR.
 
@@ -369,7 +410,7 @@ Protected chain:
 
 Quota is volatile and must be checked in the Codex UI when relevant.
 
-During Preferred Locale Persistence V1, Codex reached the active usage limit after implementing core files and resumed later in the same session. The canonical efficiency rule remains:
+The canonical efficiency rule remains:
 
 **one bounded block per execution, no unnecessary exploration, no unrelated refactors.**
 
@@ -397,9 +438,9 @@ Do not ask the user to reconstruct the architecture from memory when these canon
 
 ## 18. Current next action
 
-**Review latest `main` of `PatrickJM77777/iBuum-fit-frontend` and prepare the closed Codex prompt for Reviewed Translation Catalogs V1 — Welcome + Language Selection.**
+**Review the latest Base44 function implementation in `PatrickJM77777/iBuum-fit-frontend` against `docs/base44-integration-contract-v1.md` and `docs/base44-get-workout-interpretation-prompt-v1.md`, then prepare the closed Codex prompt for Base44 `getWorkoutInterpretation` Bridge V1.**
 
-Do not begin broad onboarding localization inside the same block.
+Do not wire the frontend UI, start Session Outcome, or broaden localization in that same block.
 
 ---
 
