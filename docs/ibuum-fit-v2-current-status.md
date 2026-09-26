@@ -102,6 +102,7 @@ The following core backend blocks are already implemented/merged:
 - [x] Program Planner V1 — explicit one-week program structure and authoritative context; contract: `docs/program-planner-v1.md`
 - [x] Planner / Rescheduling V1 — explicit within-week date changes only; contract: `docs/planner-rescheduling-v1.md`
 - [x] Recovery / Daily State Engine V1 — explicit daily self-report and separate factual weekly context; contract: `docs/recovery-daily-state-v1.md`
+- [x] Cycle Training History V1 — canonical session snapshots with optional explicit cycle facts; contract: `docs/cycle-training-history-v1.md`
 
 Canonical pipeline status:
 
@@ -114,7 +115,8 @@ Workout Execution
  -> Program Planner V1 ✅
  -> Planner / Rescheduling V1 ✅
  -> Recovery / Daily State Engine V1 ✅
- -> Cycle Training History V1 ← NEXT
+ -> Cycle Training History V1 ✅
+ -> Cycle Pattern Analyzer V1 ← NEXT
 ```
 
 Current Interpretation Core remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
@@ -290,7 +292,7 @@ These limitations are accepted for now. **Broad onboarding localization is defer
 
 ## 10. Next approved development block
 
-### **Cycle Training History V1**
+### **Cycle Pattern Analyzer V1**
 
 This is the next approved bounded Codex development block in `PatrickJM77777/iBuum-agent`.
 
@@ -302,7 +304,9 @@ Planner / Rescheduling V1 is completed: explicit validated requests move only re
 
 Recovery / Daily State Engine V1 is completed: it preserves explicit daily signals and separate canonical weekly facts, derives factual flags/counts, and provides no readiness score, training recommendation, adaptation, rescheduling or medical interpretation. Its contract is documented in `docs/recovery-daily-state-v1.md`.
 
-Cycle Training History V1 requires a separate approved bounded prompt, reviewed against the canonical Architecture Map and Codex workflow. Cycle Pattern Analyzer follows Cycle Training History and remains out of scope. Weekly Review remains outside these completed domain blocks.
+Cycle Training History V1 is completed: it attaches only explicit session-linked cycle observations to deeply copied canonical TrainingHistory sessions, preserves every session and its order, and provides factual counts without phase inference, prediction, analysis, training adaptation or medical interpretation. Its contract is documented in `docs/cycle-training-history-v1.md`.
+
+Cycle Pattern Analyzer V1 is the next approved bounded block and requires a separate closed prompt reviewed against the canonical Architecture Map and Codex workflow. It is not implemented by Cycle Training History V1. Weekly Review remains outside these completed domain blocks.
 
 ---
 
@@ -310,15 +314,14 @@ Cycle Training History V1 requires a separate approved bounded prompt, reviewed 
 
 Subject to review after each merged block:
 
-1. Cycle Training History V1 — current next approved development block
-2. Cycle Pattern Analyzer — after Cycle Training History
-3. Personal Memory / Adaptive Profile / Human Adaptation Profile
-4. Coach Core / Intent Router / Communication Brain
-5. Daily Coach / Weekly Review / Live Workout
-6. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-7. iBuum for Coach expansion
+1. Cycle Pattern Analyzer V1 — current next approved development block
+2. Personal Memory / Adaptive Profile / Human Adaptation Profile
+3. Coach Core / Intent Router / Communication Brain
+4. Daily Coach / Weekly Review / Live Workout
+5. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+6. iBuum for Coach expansion
 
-Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1, Weekly Training State V1, Program Planner V1, Planner / Rescheduling V1 and Recovery / Daily State Engine V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
+Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1, Weekly Training State V1, Program Planner V1, Planner / Rescheduling V1, Recovery / Daily State Engine V1 and Cycle Training History V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
 
 Additional onboarding localization can proceed later in separate bounded groups when product priority requires it; it is no longer an immediate prerequisite for Agent integration.
 
@@ -335,8 +338,8 @@ This order is directional, not permission to bundle multiple blocks into one PR.
 - [x] Program Planner V1
 - [x] Planner / Rescheduling V1
 - [x] Recovery / Daily State Engine V1
-- [ ] Cycle Training History V1
-- [ ] Cycle Pattern Analyzer
+- [x] Cycle Training History V1
+- [ ] Cycle Pattern Analyzer V1
 - [ ] Personal Memory
 - [ ] Interaction Memory
 - [ ] Adaptive User Profile
@@ -448,9 +451,9 @@ Do not ask the user to reconstruct the architecture from memory when these canon
 
 ## 18. Current next action
 
-**Prepare the closed Codex prompt for Cycle Training History V1, using the canonical Architecture Map, Codex workflow and completed domain documentation, including Recovery / Daily State Engine V1.**
+**Prepare the closed Codex prompt for Cycle Pattern Analyzer V1, using the canonical Architecture Map, Codex workflow and completed domain documentation, including Cycle Training History V1.**
 
-Keep this to one bounded block per Codex execution. Cycle Training History implementation requires that separate approved prompt. Cycle Pattern Analyzer remains a later block. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
+Keep this to one bounded block per Codex execution. Cycle Pattern Analyzer V1 implementation requires that separate approved prompt. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
 
 ---
 
