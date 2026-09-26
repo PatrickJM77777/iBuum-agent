@@ -99,6 +99,7 @@ The following core backend blocks are already implemented/merged:
 - [x] Training History V1 — PR #28, merge commit `04a81e3b45446d1cc58c780771a0aabe4d7aea1d`
 - [x] Progression Engine V1 — PR #29, merge commit `bd55e8852bd7c7252841f9afef91fa4c25645ce2`
 - [x] Weekly Training State V1 — internal factual weekly aggregate; contract: `docs/weekly-training-state-v1.md`
+- [x] Program Planner V1 — explicit one-week program structure and authoritative context; contract: `docs/program-planner-v1.md`
 
 Canonical pipeline status:
 
@@ -108,7 +109,8 @@ Workout Execution
  -> Training History V1 ✅
  -> Progression Engine V1 ✅
  -> Weekly Training State V1 ✅
- -> Program Planner V1 ← NEXT
+ -> Program Planner V1 ✅
+ -> Planner / Rescheduling V1 ← NEXT
 ```
 
 Current Interpretation Core remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
@@ -284,15 +286,15 @@ These limitations are accepted for now. **Broad onboarding localization is defer
 
 ## 10. Next approved development block
 
-### **Program Planner V1**
+### **Planner / Rescheduling V1**
 
 This is the next approved bounded Codex development block in `PatrickJM77777/iBuum-agent`.
 
-Weekly Training State V1 is implemented as an **internal domain aggregate**, not the user-facing Weekly Review. It combines an explicit schedule and explicitly scoped Training History sessions with factual workload, post-session feedback and due-slot attendance.
+Weekly Training State V1 supplies authoritative weekly facts. Program Planner V1 is completed: it dates an explicit caller-approved session template for one contiguous future seven-day week and preserves canonical progression decisions and factual previous-week context.
 
-Weekly state preserves canonical history order, leaves due unresolved slots remaining, and makes no recommendations or scheduling decisions. It does not invoke Progression Engine. Program Planner may consume progression output and weekly state as separate authoritative inputs.
+Program Planner does not reinterpret progression, recalculate weekly state, adapt the template, generate workouts or reschedule unresolved work. Its contract is documented in `docs/program-planner-v1.md`.
 
-Program Planner V1 is not yet implemented. Its detailed contract requires a separate approved bounded prompt, reviewed against the canonical Architecture Map and Codex workflow. Planner/rescheduling and Weekly Review remain outside the completed weekly-state block.
+Planner / Rescheduling V1 requires a separate approved bounded prompt, reviewed against the canonical Architecture Map and Codex workflow. Weekly Review remains outside these completed domain blocks.
 
 ---
 
@@ -300,17 +302,16 @@ Program Planner V1 is not yet implemented. Its detailed contract requires a sepa
 
 Subject to review after each merged block:
 
-1. Program Planner V1 — current next approved development block
-2. Planner / Rescheduling
-3. Recovery / Daily State Engine
-4. Cycle Training History / Pattern Analyzer
-5. Personal Memory / Adaptive Profile / Human Adaptation Profile
-6. Coach Core / Intent Router / Communication Brain
-7. Daily Coach / Weekly Review / Live Workout
-8. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-9. iBuum for Coach expansion
+1. Planner / Rescheduling V1 — current next approved development block
+2. Recovery / Daily State Engine
+3. Cycle Training History / Pattern Analyzer
+4. Personal Memory / Adaptive Profile / Human Adaptation Profile
+5. Coach Core / Intent Router / Communication Brain
+6. Daily Coach / Weekly Review / Live Workout
+7. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+8. iBuum for Coach expansion
 
-Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1 and Weekly Training State V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
+Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1, Weekly Training State V1 and Program Planner V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
 
 Additional onboarding localization can proceed later in separate bounded groups when product priority requires it; it is no longer an immediate prerequisite for Agent integration.
 
@@ -324,8 +325,8 @@ This order is directional, not permission to bundle multiple blocks into one PR.
 - [x] Training History V1
 - [x] Progression Engine V1
 - [x] Weekly Training State V1
-- [ ] Program Planner
-- [ ] Planner / Rescheduling
+- [x] Program Planner V1
+- [ ] Planner / Rescheduling V1
 - [ ] Recovery / Daily State Engine
 - [ ] Cycle Training History
 - [ ] Cycle Pattern Analyzer
@@ -440,9 +441,9 @@ Do not ask the user to reconstruct the architecture from memory when these canon
 
 ## 18. Current next action
 
-**Prepare the closed Codex prompt for Program Planner V1, using the canonical Architecture Map, Codex workflow and Session Outcome, Training History, Progression Engine and Weekly Training State documentation.**
+**Prepare the closed Codex prompt for Planner / Rescheduling V1, using the canonical Architecture Map, Codex workflow and Session Outcome, Training History, Progression Engine, Weekly Training State and Program Planner documentation.**
 
-Keep this to one bounded block per Codex execution. Program Planner implementation requires that separate approved prompt. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
+Keep this to one bounded block per Codex execution. Planner / Rescheduling implementation requires that separate approved prompt. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
 
 ---
 
