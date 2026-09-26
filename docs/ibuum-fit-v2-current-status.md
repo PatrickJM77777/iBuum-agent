@@ -106,6 +106,7 @@ The following core backend blocks are already implemented/merged:
 - [x] Cycle Pattern Analyzer V1 — observed personal historical associations with same-session-type evidence guards; contract: `docs/cycle-pattern-analyzer-v1.md`
 - [x] Personal Memory V1 — detached canonical sports-domain snapshots and factual inventory; contract: `docs/personal-memory-v1.md`
 - [x] Interaction Memory V1 — explicit presentation preferences and factual inventory; contract: `docs/interaction-memory-v1.md`
+- [x] Sport Activity Profile V1 — explicit current multisport declarations and factual inventory; contract: `docs/sport-activity-profile-v1.md`
 
 Canonical pipeline status:
 
@@ -122,7 +123,8 @@ Workout Execution
  -> Cycle Pattern Analyzer V1 ✅
  -> Personal Memory V1 ✅
  -> Interaction Memory V1 ✅
- -> Sport Activity Profile V1 ← NEXT
+ -> Sport Activity Profile V1 ✅
+ -> External / Multisport Activity History V1 ← NEXT
 ```
 
 Current Interpretation Core remains deterministic and Spanish-first. It explains approved decisions; it does not replace the motor.
@@ -298,7 +300,7 @@ These limitations are accepted for now. **Broad onboarding localization is defer
 
 ## 10. Next approved development block
 
-### **Sport Activity Profile V1**
+### **External / Multisport Activity History V1**
 
 This is the next approved bounded Codex development block in `PatrickJM77777/iBuum-agent`.
 
@@ -318,7 +320,9 @@ Personal Memory V1 is completed: it stores deeply detached canonical TrainingHis
 
 Interaction Memory V1 is completed: it stores only explicit current communication/presentation preferences, preserving unknown values and independent dimensions in a deeply detached deterministic snapshot with factual counts. It changes no training decisions and implements no inference, accessibility adaptation, response generation or persistence. Its contract is documented in `docs/interaction-memory-v1.md`.
 
-Sport Activity Profile V1 is the next approved bounded block and requires its own closed contract reviewed against the canonical Architecture Map and Codex workflow. External / Multisport Activity History V1 also requires its own closed contract. Human Adaptation Profile, Adaptive User Profile, Personalization Layer and Unified Activity Context remain later. Weekly Review remains outside these completed domain blocks.
+Sport Activity Profile V1 is completed: it stores only explicitly declared current activities and independent optional context, preserving caller order and custom labels in a deeply detached deterministic snapshot with factual counts. It creates no history, load, training decisions, Human Adaptation inference or persistence, and does not synchronize existing TrainingRecommendationRequest fields. Its contract is documented in `docs/sport-activity-profile-v1.md`.
+
+External / Multisport Activity History V1 is the next approved bounded block and requires its own closed contract reviewed against the canonical Architecture Map and Codex workflow. Human Adaptation Profile, Adaptive User Profile, Personalization Layer and Unified Activity Context remain later. Weekly Review remains outside these completed domain blocks.
 
 ---
 
@@ -326,18 +330,17 @@ Sport Activity Profile V1 is the next approved bounded block and requires its ow
 
 Subject to review after each merged block:
 
-1. Sport Activity Profile V1 — NEXT
-2. External / Multisport Activity History V1
-3. Human Adaptation Profile V1
-4. Adaptive User Profile V1
-5. Personalization Layer V1
-6. Unified Activity Context V1
-7. Coach Core / Intent Router / Communication Brain
-8. Daily Coach / Weekly Review / Live Workout
-9. Specialist systems such as Form Check, Wearables, Nutrition and Voice
-10. iBuum for Coach expansion
+1. External / Multisport Activity History V1 — NEXT
+2. Human Adaptation Profile V1
+3. Adaptive User Profile V1
+4. Personalization Layer V1
+5. Unified Activity Context V1
+6. Coach Core / Intent Router / Communication Brain
+7. Daily Coach / Weekly Review / Live Workout
+8. Specialist systems such as Form Check, Wearables, Nutrition and Voice
+9. iBuum for Coach expansion
 
-Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1, Weekly Training State V1, Program Planner V1, Planner / Rescheduling V1, Recovery / Daily State Engine V1, Cycle Training History V1, Cycle Pattern Analyzer V1, Personal Memory V1 and Interaction Memory V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
+Base44 bridge implementation, Session Outcome V1, Training History V1, Progression Engine V1, Weekly Training State V1, Program Planner V1, Planner / Rescheduling V1, Recovery / Daily State Engine V1, Cycle Training History V1, Cycle Pattern Analyzer V1, Personal Memory V1, Interaction Memory V1 and Sport Activity Profile V1 are complete. Live Base44 runtime acceptance remains paused until credits/runtime access are available; frontend adoption remains pending until that acceptance.
 
 Additional onboarding localization can proceed later in separate bounded groups when product priority requires it; it is no longer an immediate prerequisite for Agent integration.
 
@@ -358,8 +361,8 @@ This order is directional, not permission to bundle multiple blocks into one PR.
 - [x] Cycle Pattern Analyzer V1
 - [x] Personal Memory V1
 - [x] Interaction Memory V1
-- [ ] Sport Activity Profile V1 — NEXT
-- [ ] External / Multisport Activity History V1
+- [x] Sport Activity Profile V1
+- [ ] External / Multisport Activity History V1 — NEXT
 - [ ] Human Adaptation Profile V1
 - [ ] Adaptive User Profile V1
 - [ ] Personalization Layer V1
@@ -470,9 +473,9 @@ Do not ask the user to reconstruct the architecture from memory when these canon
 
 ## 18. Current next action
 
-**Prepare the closed Codex prompt for Sport Activity Profile V1, using the canonical Architecture Map, Codex workflow and completed domain documentation, including Personal Memory V1 and Interaction Memory V1.**
+**Prepare the closed Codex prompt for External / Multisport Activity History V1, using the canonical Architecture Map, Codex workflow and completed domain documentation, including Sport Activity Profile V1.**
 
-Keep this to one bounded block per Codex execution. Sport Activity Profile V1 implementation requires that separate approved prompt. All later roadmap blocks remain future work. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
+Keep this to one bounded block per Codex execution. External / Multisport Activity History V1 implementation requires that separate approved prompt. All later roadmap blocks remain future work. Live Base44 runtime acceptance remains paused, and frontend adoption remains pending until acceptance.
 
 ---
 
